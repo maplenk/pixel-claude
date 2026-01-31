@@ -4,7 +4,11 @@ export interface CanvasContext {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   scale: number;
+  dpr: number;
 }
+
+// Track current DPR for resize handling
+let currentDpr = 1;
 
 export function setupCanvas(canvasId: string): CanvasContext {
   const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -17,24 +21,42 @@ export function setupCanvas(canvasId: string): CanvasContext {
     throw new Error('Could not get 2D context');
   }
 
-  // Set internal resolution
-  canvas.width = ART_CONFIG.internalWidth;
-  canvas.height = ART_CONFIG.internalHeight;
+  // Get device pixel ratio for retina displays
+  const dpr = window.devicePixelRatio || 1;
+  currentDpr = dpr;
 
-  // Disable image smoothing for crisp pixels
+  // Scale canvas for DPR (actual pixel dimensions)
+  canvas.width = ART_CONFIG.internalWidth * dpr;
+  canvas.height = ART_CONFIG.internalHeight * dpr;
+
+  // Scale context to draw at internal resolution
+  ctx.scale(dpr, dpr);
+
+  // Disable image smoothing for crisp pixels (must be after scale)
   ctx.imageSmoothingEnabled = false;
 
-  // Calculate initial scale
+  // Calculate initial display scale
   const scale = calculateScale();
   applyScale(canvas, scale);
 
-  // Handle resize
+  // Handle resize and DPR changes
   window.addEventListener('resize', () => {
+    const newDpr = window.devicePixelRatio || 1;
     const newScale = calculateScale();
+
+    // If DPR changed, update canvas dimensions
+    if (newDpr !== currentDpr) {
+      currentDpr = newDpr;
+      canvas.width = ART_CONFIG.internalWidth * newDpr;
+      canvas.height = ART_CONFIG.internalHeight * newDpr;
+      ctx.scale(newDpr, newDpr);
+      ctx.imageSmoothingEnabled = false;
+    }
+
     applyScale(canvas, newScale);
   });
 
-  return { canvas, ctx, scale };
+  return { canvas, ctx, scale, dpr };
 }
 
 function calculateScale(): number {

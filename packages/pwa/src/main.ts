@@ -1,7 +1,9 @@
 import { setupCanvas, clearCanvas } from './engine/canvas';
 import { drawOffice } from './scenes/office';
-import { WSClient } from './net/ws';
-import { store, loadConnectionInfo } from './store/state';
+import { drawWorkspace } from './scenes/workspace';
+import { WSClient, BridgeClient } from './net/ws';
+import { store, loadConnectionInfo, AppState } from './store/state';
+import { initSprites } from './engine/spriteManager';
 import type { Mode } from './types';
 
 // DOM elements
@@ -10,7 +12,9 @@ const connectionStatus = document.getElementById('connection-status')!;
 
 // State
 let wsClient: WSClient | null = null;
+let bridgeClient: BridgeClient | null = null;
 let currentMode: Mode = 'idle';
+let currentState: AppState = store.getState();
 
 // Dev mode: add ?dev to URL to see scene without connection
 const isDev = window.location.search.includes('dev');
@@ -18,10 +22,20 @@ const isDev = window.location.search.includes('dev');
 // Live mode: add ?live to connect to local CLI server
 const isLive = window.location.search.includes('live');
 
+// Bridge mode: add ?bridge to connect to PixelHQ-bridge
+const isBridge = window.location.search.includes('bridge');
+
+// Scene selection: ?scene=workspace or ?scene=office (default: workspace)
+const sceneParam = new URLSearchParams(window.location.search).get('scene');
+const useWorkspaceScene = sceneParam !== 'office';
+
 // Initialize
 async function init() {
   // Setup canvas
   const { ctx } = setupCanvas('game');
+
+  // Try to load sprites (gracefully falls back to procedural if not found)
+  await initSprites();
 
   // Dev mode: hide prompt and cycle through modes for testing
   if (isDev) {
@@ -32,8 +46,8 @@ async function init() {
     // Click to cycle modes
     document.addEventListener('click', () => {
       modeIndex = (modeIndex + 1) % modes.length;
-      currentMode = modes[modeIndex];
-      console.log('Mode:', currentMode);
+      store.setMode(modes[modeIndex]);
+      console.log('Mode:', modes[modeIndex]);
     });
 
     // Keyboard shortcuts for modes
@@ -43,14 +57,27 @@ async function init() {
         '4': 'running', '5': 'celebrate', '6': 'error'
       };
       if (keyMap[e.key]) {
-        currentMode = keyMap[e.key];
-        console.log('Mode:', currentMode);
+        store.setMode(keyMap[e.key]);
+        console.log('Mode:', keyMap[e.key]);
       }
     });
   }
 
+  // Bridge mode: connect to PixelHQ-bridge
+  if (isBridge) {
+    pairPrompt.classList.add('hidden');
+
+    // Optional pairing code from URL
+    const pairingCode = new URLSearchParams(window.location.search).get('code') || undefined;
+
+    bridgeClient = new BridgeClient(pairingCode);
+    bridgeClient.connect();
+
+    console.log('Bridge mode: connecting to PixelHQ-bridge');
+  }
+
   // Live mode: connect directly to local CLI WebSocket
-  if (isLive) {
+  if (isLive && !isBridge) {
     pairPrompt.classList.add('hidden');
 
     // Read token from CLI config or use default
@@ -85,6 +112,7 @@ async function init() {
   // Subscribe to state changes
   store.subscribe((state) => {
     currentMode = state.mode;
+    currentState = state;
 
     // Update connection status UI
     updateConnectionStatus(state.connectionState);
@@ -92,26 +120,34 @@ async function init() {
 
   // Start render loop
   requestAnimationFrame(function loop(time) {
-    drawOffice(ctx, currentMode, time);
+    if (useWorkspaceScene) {
+      drawWorkspace(ctx, currentState, time);
+    } else {
+      drawOffice(ctx, currentMode, time);
+    }
     requestAnimationFrame(loop);
   });
 
   // Handle visibility changes (reconnect when app becomes visible)
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && wsClient) {
+    if (document.visibilityState === 'visible') {
       const state = store.getState();
       if (state.connectionState === 'disconnected') {
-        wsClient.connect();
+        if (bridgeClient) {
+          bridgeClient.connect();
+        } else if (wsClient) {
+          wsClient.connect();
+        }
       }
     }
   });
 }
 
-function updateConnectionStatus(state: 'disconnected' | 'connecting' | 'connected') {
+function updateConnectionStatus(state: 'disconnected' | 'connecting' | 'connected' | 'authenticated') {
   connectionStatus.classList.remove('hidden', 'connected', 'disconnected');
 
-  if (state === 'connected') {
-    connectionStatus.textContent = 'Connected';
+  if (state === 'connected' || state === 'authenticated') {
+    connectionStatus.textContent = state === 'authenticated' ? 'Authenticated' : 'Connected';
     connectionStatus.classList.add('connected');
 
     // Hide after 2 seconds

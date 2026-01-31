@@ -234,3 +234,228 @@ function lightenColor(hex: string, percent: number): string {
   const b = Math.min(255, (num & 0x0000ff) + percent);
   return `rgb(${r}, ${g}, ${b})`;
 }
+
+// =============================================================================
+// SPRITE SHEET LOADING UTILITIES
+// =============================================================================
+
+// Frame definition for sprite sheets
+export interface FrameData {
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+// Loaded sprite sheet with frame map
+export interface SpriteSheet {
+  image: HTMLImageElement;
+  frames: Map<string, FrameData>;
+  loaded: boolean;
+}
+
+// Animation sequence definition
+export interface AnimationDef {
+  frames: string[];
+  frameDuration: number; // ms per frame
+  loop: boolean;
+}
+
+// Animation state tracker
+export interface SpriteAnimState {
+  animation: string;
+  frameIndex: number;
+  elapsed: number;
+}
+
+/**
+ * Load a sprite sheet image and create frame map
+ */
+export async function loadSpriteSheet(
+  url: string,
+  frameData: FrameData[]
+): Promise<SpriteSheet> {
+  const image = new Image();
+  image.src = url;
+
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error(`Failed to load sprite: ${url}`));
+  });
+
+  const frames = new Map<string, FrameData>();
+  for (const frame of frameData) {
+    frames.set(frame.name, frame);
+  }
+
+  return { image, frames, loaded: true };
+}
+
+/**
+ * Create frame data from a grid-based sprite sheet
+ */
+export function createGridFrames(
+  prefix: string,
+  cols: number,
+  rows: number,
+  frameWidth: number,
+  frameHeight: number,
+  startIndex = 0
+): FrameData[] {
+  const frames: FrameData[] = [];
+  let index = startIndex;
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      frames.push({
+        name: `${prefix}_${index}`,
+        x: col * frameWidth,
+        y: row * frameHeight,
+        w: frameWidth,
+        h: frameHeight,
+      });
+      index++;
+    }
+  }
+
+  return frames;
+}
+
+/**
+ * Draw a sprite frame at integer coordinates
+ * Uses Math.floor to ensure pixel-perfect alignment
+ */
+export function drawSpriteFrame(
+  ctx: CanvasRenderingContext2D,
+  sheet: SpriteSheet,
+  frameName: string,
+  x: number,
+  y: number,
+  flipX = false,
+  flipY = false
+): void {
+  const frame = sheet.frames.get(frameName);
+  if (!frame) {
+    console.warn(`Sprite frame not found: ${frameName}`);
+    return;
+  }
+
+  // Use integer coordinates for pixel-perfect rendering
+  const dx = Math.floor(x);
+  const dy = Math.floor(y);
+
+  if (flipX || flipY) {
+    ctx.save();
+    ctx.translate(
+      flipX ? dx + frame.w : dx,
+      flipY ? dy + frame.h : dy
+    );
+    ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+    ctx.drawImage(
+      sheet.image,
+      frame.x, frame.y, frame.w, frame.h,
+      0, 0, frame.w, frame.h
+    );
+    ctx.restore();
+  } else {
+    ctx.drawImage(
+      sheet.image,
+      frame.x, frame.y, frame.w, frame.h,
+      dx, dy, frame.w, frame.h
+    );
+  }
+}
+
+/**
+ * Draw a sprite frame scaled (for effects or UI)
+ */
+export function drawSpriteScaled(
+  ctx: CanvasRenderingContext2D,
+  sheet: SpriteSheet,
+  frameName: string,
+  x: number,
+  y: number,
+  scale: number
+): void {
+  const frame = sheet.frames.get(frameName);
+  if (!frame) {
+    console.warn(`Sprite frame not found: ${frameName}`);
+    return;
+  }
+
+  const dx = Math.floor(x);
+  const dy = Math.floor(y);
+  const dw = Math.floor(frame.w * scale);
+  const dh = Math.floor(frame.h * scale);
+
+  ctx.drawImage(
+    sheet.image,
+    frame.x, frame.y, frame.w, frame.h,
+    dx, dy, dw, dh
+  );
+}
+
+/**
+ * Update animation state and return current frame name
+ */
+export function updateSpriteAnimation(
+  state: SpriteAnimState,
+  animations: Map<string, AnimationDef>,
+  deltaTime: number
+): string {
+  const anim = animations.get(state.animation);
+  if (!anim || anim.frames.length === 0) {
+    return '';
+  }
+
+  state.elapsed += deltaTime;
+
+  if (state.elapsed >= anim.frameDuration) {
+    state.elapsed -= anim.frameDuration;
+    state.frameIndex++;
+
+    if (state.frameIndex >= anim.frames.length) {
+      state.frameIndex = anim.loop ? 0 : anim.frames.length - 1;
+    }
+  }
+
+  return anim.frames[state.frameIndex];
+}
+
+/**
+ * Set a new animation on the state
+ */
+export function setSpriteAnimation(
+  state: SpriteAnimState,
+  animation: string,
+  restart = false
+): void {
+  if (state.animation !== animation || restart) {
+    state.animation = animation;
+    state.frameIndex = 0;
+    state.elapsed = 0;
+  }
+}
+
+/**
+ * Create initial animation state
+ */
+export function createSpriteAnimState(animation: string): SpriteAnimState {
+  return {
+    animation,
+    frameIndex: 0,
+    elapsed: 0,
+  };
+}
+
+/**
+ * Pre-load multiple sprite sheets
+ */
+export async function loadAllSprites(
+  sheets: { url: string; frames: FrameData[] }[]
+): Promise<SpriteSheet[]> {
+  return Promise.all(
+    sheets.map(({ url, frames }) => loadSpriteSheet(url, frames))
+  );
+}
