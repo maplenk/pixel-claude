@@ -2,7 +2,7 @@ import type { Mode, Activity, ToolCategory } from '../types';
 import type { AppState, AgentInfo } from '../store/state';
 import { ART_CONFIG } from '../types';
 import { clearCanvas } from '../engine/canvas';
-import { getSprite, hasSprites, getModeFrame } from '../engine/spriteManager';
+import { getSprite, hasSprites, getModeFrame, getLimeZuFrame, hasLimeZuSprites } from '../engine/spriteManager';
 import { drawSpriteFrame } from '../engine/sprites';
 
 // Portrait mode: 180x320
@@ -707,41 +707,64 @@ function drawCharacter(
   ctx.ellipse(x, y + 2, 6, 2, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Try to use sprite character
-  const charSheet = getSprite('characters');
-  if (charSheet) {
-    // Get frame based on mode
-    const frameName = getModeFrame(state.mode, t);
-    // Draw sprite centered at position (sprite is 16x16)
-    drawSpriteFrame(ctx, charSheet, frameName, x - 8, baseY - 24);
+  // Try LimeZu sprites first (high quality 16x32 characters)
+  const limeZuIdle = getSprite('limezu-adam-idle');
+  const limeZuSit = getSprite('limezu-adam-sit');
+  const limeZuRun = getSprite('limezu-adam-run');
+
+  if (limeZuIdle || limeZuSit || limeZuRun) {
+    // Use LimeZu character sprites
+    let sheet = limeZuIdle;
+    let animPrefix = 'adam_idle';
+
+    if (isWalking && limeZuRun) {
+      sheet = limeZuRun;
+      animPrefix = 'adam_run';
+    } else if ((state.mode === 'typing' || state.mode === 'idle') && limeZuSit) {
+      sheet = limeZuSit;
+      animPrefix = 'adam_sit';
+    }
+
+    if (sheet) {
+      const frameName = getLimeZuFrame(animPrefix, t, 'down');
+      // LimeZu sprites are 16x32, center horizontally
+      drawSpriteFrame(ctx, sheet, frameName, x - 8, baseY - 32);
+    }
   } else {
-    // Fallback: Procedural character from behind (facing monitor)
+    // Try OpenGameArt characters
+    const charSheet = getSprite('characters');
+    if (charSheet) {
+      const frameName = getModeFrame(state.mode, t);
+      drawSpriteFrame(ctx, charSheet, frameName, x - 8, baseY - 24);
+    } else {
+      // Fallback: Procedural character from behind (facing monitor)
 
-    // Legs
-    ctx.fillStyle = P.pantsDark;
-    ctx.fillRect(x - 3, baseY - 8, 3, 8);
-    ctx.fillRect(x, baseY - 8, 3, 8);
+      // Legs
+      ctx.fillStyle = P.pantsDark;
+      ctx.fillRect(x - 3, baseY - 8, 3, 8);
+      ctx.fillRect(x, baseY - 8, 3, 8);
 
-    // Body/shirt
-    ctx.fillStyle = P.shirtBlue;
-    ctx.fillRect(x - 4, baseY - 18, 8, 10);
-    ctx.fillStyle = P.shirtDark;
-    ctx.fillRect(x - 4, baseY - 18, 2, 10);
+      // Body/shirt
+      ctx.fillStyle = P.shirtBlue;
+      ctx.fillRect(x - 4, baseY - 18, 8, 10);
+      ctx.fillStyle = P.shirtDark;
+      ctx.fillRect(x - 4, baseY - 18, 2, 10);
 
-    // Arms
-    ctx.fillStyle = P.shirtBlue;
-    ctx.fillRect(x - 6, baseY - 16 + armOffset, 2, 6);
-    ctx.fillRect(x + 4, baseY - 16 + armOffset, 2, 6);
+      // Arms
+      ctx.fillStyle = P.shirtBlue;
+      ctx.fillRect(x - 6, baseY - 16 + armOffset, 2, 6);
+      ctx.fillRect(x + 4, baseY - 16 + armOffset, 2, 6);
 
-    // Hands
-    ctx.fillStyle = P.skinTone;
-    ctx.fillRect(x - 6, baseY - 10 + armOffset, 2, 2);
-    ctx.fillRect(x + 4, baseY - 10 + armOffset, 2, 2);
+      // Hands
+      ctx.fillStyle = P.skinTone;
+      ctx.fillRect(x - 6, baseY - 10 + armOffset, 2, 2);
+      ctx.fillRect(x + 4, baseY - 10 + armOffset, 2, 2);
 
-    // Head (back of head - hair)
-    ctx.fillStyle = P.hairDark;
-    ctx.fillRect(x - 4, baseY - 26, 8, 8);
-    ctx.fillRect(x - 5, baseY - 24, 10, 4);
+      // Head (back of head - hair)
+      ctx.fillStyle = P.hairDark;
+      ctx.fillRect(x - 4, baseY - 26, 8, 8);
+      ctx.fillRect(x - 5, baseY - 24, 10, 4);
+    }
   }
 
   // Chair (always procedural - looks fine)

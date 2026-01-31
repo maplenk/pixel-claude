@@ -27,13 +27,27 @@ let spritesEnabled = false;
  * Initialize sprite loading - call once at startup
  */
 export async function initSprites(): Promise<void> {
-  // Load downloaded OpenGameArt sprites
-  const assetList = [
+  // Load LimeZu Modern Interiors sprites (high quality)
+  const limeZuAssets = [
+    { name: 'limezu-adam-idle', url: '/sprites/limezu/Adam_idle_anim_16x16.png', frames: createLimeZuCharacterFrames('adam_idle') },
+    { name: 'limezu-adam-sit', url: '/sprites/limezu/Adam_sit_16x16.png', frames: createLimeZuCharacterFrames('adam_sit') },
+    { name: 'limezu-adam-run', url: '/sprites/limezu/Adam_run_16x16.png', frames: createLimeZuCharacterFrames('adam_run') },
+    { name: 'limezu-adam-phone', url: '/sprites/limezu/Adam_phone_16x16.png', frames: createLimeZuPhoneFrames('adam_phone') },
+    { name: 'limezu-alex-idle', url: '/sprites/limezu/Alex_idle_anim_16x16.png', frames: createLimeZuCharacterFrames('alex_idle') },
+    { name: 'limezu-alex-sit', url: '/sprites/limezu/Alex_sit_16x16.png', frames: createLimeZuCharacterFrames('alex_sit') },
+    { name: 'limezu-interiors', url: '/sprites/limezu/Interiors_free_16x16.png', frames: createLimeZuInteriorsFrames() },
+    { name: 'limezu-room', url: '/sprites/limezu/Room_Builder_free_16x16.png', frames: createLimeZuRoomFrames() },
+  ];
+
+  // Load OpenGameArt sprites as fallback
+  const openGameArtAssets = [
     { name: 'characters', url: '/sprites/tiny16-characters.png', frames: createTiny16CharacterFrames() },
     { name: 'things', url: '/sprites/tiny16-things.png', frames: createTiny16ThingsFrames() },
     { name: 'office', url: '/sprites/office-tileset.png', frames: createOfficeFrames() },
     { name: 'laboffice', url: '/sprites/lab-office-tiles.png', frames: createLabOfficeFrames() },
   ];
+
+  const assetList = [...limeZuAssets, ...openGameArtAssets];
 
   // Try to load each sprite sheet
   for (const asset of assetList) {
@@ -98,7 +112,116 @@ export function drawWithFallback(
 }
 
 // =============================================================================
-// FRAME DEFINITIONS FOR DOWNLOADED SPRITES
+// LIMEZU MODERN INTERIORS FRAME DEFINITIONS
+// =============================================================================
+
+/**
+ * LimeZu Character Frames (384x32 = 24 frames of 16x32)
+ * 4 directions x 6 frames each: down, left, right, up
+ */
+function createLimeZuCharacterFrames(prefix: string): FrameData[] {
+  const frames: FrameData[] = [];
+  const w = 16;
+  const h = 32;
+
+  // 24 frames total: 6 per direction (down, left, right, up)
+  const directions = ['down', 'left', 'right', 'up'];
+  for (let dir = 0; dir < 4; dir++) {
+    for (let frame = 0; frame < 6; frame++) {
+      frames.push({
+        name: `${prefix}_${directions[dir]}_${frame}`,
+        x: (dir * 6 + frame) * w,
+        y: 0,
+        w,
+        h,
+      });
+    }
+  }
+
+  // Convenience aliases for simple animation
+  frames.push({ name: `${prefix}_0`, x: 0, y: 0, w, h });
+  frames.push({ name: `${prefix}_1`, x: w, y: 0, w, h });
+  frames.push({ name: `${prefix}_2`, x: w * 2, y: 0, w, h });
+  frames.push({ name: `${prefix}_3`, x: w * 3, y: 0, w, h });
+
+  return frames;
+}
+
+/**
+ * LimeZu Phone Frames (144x32 = 9 frames of 16x32)
+ */
+function createLimeZuPhoneFrames(prefix: string): FrameData[] {
+  const frames: FrameData[] = [];
+  const w = 16;
+  const h = 32;
+
+  for (let i = 0; i < 9; i++) {
+    frames.push({ name: `${prefix}_${i}`, x: i * w, y: 0, w, h });
+  }
+
+  return frames;
+}
+
+/**
+ * LimeZu Interiors (256x1424 = 16 cols x 89 rows of 16x16)
+ */
+function createLimeZuInteriorsFrames(): FrameData[] {
+  const frames: FrameData[] = [];
+  const w = 16;
+  const h = 16;
+  const cols = 16;
+  const rows = 89;
+
+  // Grid-based frames
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      frames.push({ name: `interior_${row}_${col}`, x: col * w, y: row * h, w, h });
+    }
+  }
+
+  // Named furniture items (approximate positions based on typical LimeZu layout)
+  // Desks usually around rows 10-15
+  frames.push({ name: 'desk_top', x: 0, y: 160, w: 32, h: 32 });
+  frames.push({ name: 'computer_monitor', x: 32, y: 160, w: 16, h: 16 });
+  frames.push({ name: 'keyboard', x: 48, y: 176, w: 16, h: 16 });
+  frames.push({ name: 'chair', x: 64, y: 160, w: 16, h: 32 });
+  frames.push({ name: 'bookshelf', x: 0, y: 192, w: 32, h: 48 });
+  frames.push({ name: 'plant', x: 96, y: 160, w: 16, h: 32 });
+  frames.push({ name: 'lamp', x: 112, y: 160, w: 16, h: 32 });
+  frames.push({ name: 'whiteboard', x: 128, y: 0, w: 48, h: 32 });
+  frames.push({ name: 'corkboard', x: 176, y: 0, w: 32, h: 32 });
+
+  return frames;
+}
+
+/**
+ * LimeZu Room Builder (272x368 = 17 cols x 23 rows of 16x16)
+ */
+function createLimeZuRoomFrames(): FrameData[] {
+  const frames: FrameData[] = [];
+  const w = 16;
+  const h = 16;
+  const cols = 17;
+  const rows = 23;
+
+  // Grid-based frames
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      frames.push({ name: `room_${row}_${col}`, x: col * w, y: row * h, w, h });
+    }
+  }
+
+  // Floor and wall tiles
+  frames.push({ name: 'floor_wood', x: 0, y: 0, w, h });
+  frames.push({ name: 'floor_tile', x: 16, y: 0, w, h });
+  frames.push({ name: 'wall_top', x: 0, y: 16, w, h });
+  frames.push({ name: 'wall_bottom', x: 0, y: 32, w, h });
+
+  return frames;
+}
+
+// =============================================================================
+// OPENGAMEART FRAME DEFINITIONS (FALLBACK)
 // =============================================================================
 
 /**
@@ -237,4 +360,19 @@ export function getModeFrame(mode: string, time: number): string {
     default:
       return `idle_${frameIndex}`;
   }
+}
+
+/**
+ * Get LimeZu character animation frame
+ */
+export function getLimeZuFrame(animation: string, time: number, direction = 'down'): string {
+  const frameIndex = Math.floor(time / 150) % 6;
+  return `${animation}_${direction}_${frameIndex}`;
+}
+
+/**
+ * Check if LimeZu sprites are loaded
+ */
+export function hasLimeZuSprites(): boolean {
+  return getSprite('limezu-adam-idle') !== null;
 }
