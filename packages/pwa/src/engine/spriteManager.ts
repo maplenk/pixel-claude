@@ -164,6 +164,7 @@ function createLimeZuPhoneFrames(prefix: string): FrameData[] {
 
 /**
  * LimeZu Interiors (256x1424 = 16 cols x 89 rows of 16x16)
+ * Carefully mapped from actual sprite sheet
  */
 function createLimeZuInteriorsFrames(): FrameData[] {
   const frames: FrameData[] = [];
@@ -172,30 +173,96 @@ function createLimeZuInteriorsFrames(): FrameData[] {
   const cols = 16;
   const rows = 89;
 
-  // Grid-based frames
+  // Grid-based frames for precise access
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       frames.push({ name: `interior_${row}_${col}`, x: col * w, y: row * h, w, h });
     }
   }
 
-  // Named furniture items (approximate positions based on typical LimeZu layout)
-  // Desks usually around rows 10-15
-  frames.push({ name: 'desk_top', x: 0, y: 160, w: 32, h: 32 });
-  frames.push({ name: 'computer_monitor', x: 32, y: 160, w: 16, h: 16 });
-  frames.push({ name: 'keyboard', x: 48, y: 176, w: 16, h: 16 });
-  frames.push({ name: 'chair', x: 64, y: 160, w: 16, h: 32 });
-  frames.push({ name: 'bookshelf', x: 0, y: 192, w: 32, h: 48 });
-  frames.push({ name: 'plant', x: 96, y: 160, w: 16, h: 32 });
-  frames.push({ name: 'lamp', x: 112, y: 160, w: 16, h: 32 });
-  frames.push({ name: 'whiteboard', x: 128, y: 0, w: 48, h: 32 });
-  frames.push({ name: 'corkboard', x: 176, y: 0, w: 32, h: 32 });
+  // ==========================================================================
+  // OFFICE FURNITURE (mapped from actual sprite positions)
+  // ==========================================================================
+
+  // Desks (row 4-5 area - brown wooden desks)
+  frames.push({ name: 'desk_brown_top', x: 0, y: 64, w: 32, h: 16 });
+  frames.push({ name: 'desk_brown_front', x: 0, y: 80, w: 32, h: 16 });
+  frames.push({ name: 'desk_small', x: 64, y: 64, w: 16, h: 32 });
+
+  // Office chairs (row 28+ area - grey swivel chairs)
+  frames.push({ name: 'office_chair_back', x: 0, y: 448, w: 16, h: 16 });
+  frames.push({ name: 'office_chair_front', x: 16, y: 448, w: 16, h: 16 });
+  frames.push({ name: 'office_chair_side', x: 32, y: 448, w: 16, h: 16 });
+
+  // Orange/wood chairs (row 12-13)
+  frames.push({ name: 'chair_orange_back', x: 0, y: 192, w: 16, h: 16 });
+  frames.push({ name: 'chair_orange_front', x: 16, y: 192, w: 16, h: 16 });
+  frames.push({ name: 'chair_orange_side', x: 32, y: 192, w: 16, h: 16 });
+
+  // Computers/Monitors (around row 22-23 area)
+  frames.push({ name: 'computer_desk', x: 64, y: 352, w: 32, h: 32 });
+  frames.push({ name: 'monitor_on', x: 80, y: 352, w: 16, h: 16 });
+  frames.push({ name: 'monitor_off', x: 96, y: 352, w: 16, h: 16 });
+  frames.push({ name: 'keyboard', x: 80, y: 368, w: 16, h: 16 });
+
+  // Bookshelves (row 6 area - colorful)
+  frames.push({ name: 'bookshelf_full', x: 0, y: 96, w: 32, h: 48 });
+  frames.push({ name: 'bookshelf_small', x: 32, y: 96, w: 16, h: 32 });
+  frames.push({ name: 'bookshelf_tall', x: 48, y: 96, w: 16, h: 48 });
+
+  // Plants (row 17-20 area)
+  frames.push({ name: 'plant_small', x: 0, y: 320, w: 16, h: 16 });
+  frames.push({ name: 'plant_medium', x: 16, y: 304, w: 16, h: 32 });
+  frames.push({ name: 'plant_large', x: 32, y: 288, w: 16, h: 48 });
+  frames.push({ name: 'plant_pot', x: 48, y: 320, w: 16, h: 16 });
+  frames.push({ name: 'palm_tree', x: 208, y: 272, w: 32, h: 48 });
+
+  // Lamps (row 20-21 - mushroom lamps and desk lamps)
+  frames.push({ name: 'lamp_desk', x: 128, y: 320, w: 16, h: 32 });
+  frames.push({ name: 'lamp_mushroom_red', x: 160, y: 320, w: 16, h: 32 });
+  frames.push({ name: 'lamp_mushroom_blue', x: 176, y: 320, w: 16, h: 32 });
+  frames.push({ name: 'lamp_mushroom_green', x: 192, y: 320, w: 16, h: 32 });
+  frames.push({ name: 'lamp_floor', x: 144, y: 320, w: 16, h: 32 });
+
+  // Chalkboard/Whiteboard (row 14-15 - green boards)
+  frames.push({ name: 'chalkboard', x: 64, y: 224, w: 48, h: 32 });
+  frames.push({ name: 'chalkboard_small', x: 112, y: 224, w: 32, h: 32 });
+
+  // Couches/Sofas (row 16-17 and 26-27)
+  frames.push({ name: 'couch_blue', x: 0, y: 256, w: 48, h: 32 });
+  frames.push({ name: 'couch_grey', x: 0, y: 416, w: 48, h: 32 });
+  frames.push({ name: 'couch_beige', x: 48, y: 416, w: 48, h: 32 });
+
+  // Rugs (row 6-7)
+  frames.push({ name: 'rug_blue', x: 192, y: 96, w: 48, h: 32 });
+  frames.push({ name: 'rug_red', x: 128, y: 112, w: 48, h: 32 });
+  frames.push({ name: 'rug_brown', x: 176, y: 112, w: 32, h: 32 });
+
+  // Windows (row 10-11)
+  frames.push({ name: 'window_large', x: 0, y: 160, w: 32, h: 32 });
+  frames.push({ name: 'window_small', x: 32, y: 160, w: 16, h: 32 });
+  frames.push({ name: 'window_curtain', x: 64, y: 160, w: 32, h: 32 });
+
+  // Wall decorations
+  frames.push({ name: 'painting_landscape', x: 128, y: 144, w: 32, h: 16 });
+  frames.push({ name: 'painting_portrait', x: 160, y: 144, w: 16, h: 32 });
+  frames.push({ name: 'clock', x: 176, y: 144, w: 16, h: 16 });
+  frames.push({ name: 'poster', x: 192, y: 144, w: 16, h: 32 });
+
+  // Water cooler (custom assembly)
+  frames.push({ name: 'water_cooler_top', x: 224, y: 352, w: 16, h: 16 });
+  frames.push({ name: 'water_cooler_bottom', x: 224, y: 368, w: 16, h: 16 });
+
+  // Server/Electronics
+  frames.push({ name: 'server_rack', x: 208, y: 384, w: 32, h: 48 });
+  frames.push({ name: 'vending_machine', x: 176, y: 384, w: 32, h: 48 });
 
   return frames;
 }
 
 /**
  * LimeZu Room Builder (272x368 = 17 cols x 23 rows of 16x16)
+ * Floor tiles on right side, wall panels on left
  */
 function createLimeZuRoomFrames(): FrameData[] {
   const frames: FrameData[] = [];
@@ -204,18 +271,55 @@ function createLimeZuRoomFrames(): FrameData[] {
   const cols = 17;
   const rows = 23;
 
-  // Grid-based frames
+  // Grid-based frames for precise access
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       frames.push({ name: `room_${row}_${col}`, x: col * w, y: row * h, w, h });
     }
   }
 
-  // Floor and wall tiles
-  frames.push({ name: 'floor_wood', x: 0, y: 0, w, h });
-  frames.push({ name: 'floor_tile', x: 16, y: 0, w, h });
-  frames.push({ name: 'wall_top', x: 0, y: 16, w, h });
-  frames.push({ name: 'wall_bottom', x: 0, y: 32, w, h });
+  // ==========================================================================
+  // FLOOR TILES (right side of sprite sheet)
+  // ==========================================================================
+
+  // Wood floors (various tones)
+  frames.push({ name: 'floor_wood_light', x: 80, y: 64, w, h });
+  frames.push({ name: 'floor_wood_medium', x: 96, y: 64, w, h });
+  frames.push({ name: 'floor_wood_dark', x: 112, y: 64, w, h });
+  frames.push({ name: 'floor_wood_herringbone', x: 144, y: 64, w, h });
+
+  // Carpet/Tile floors
+  frames.push({ name: 'floor_carpet_red', x: 80, y: 48, w, h });
+  frames.push({ name: 'floor_carpet_blue', x: 96, y: 48, w, h });
+  frames.push({ name: 'floor_tile_white', x: 128, y: 48, w, h });
+  frames.push({ name: 'floor_tile_checker', x: 144, y: 48, w, h });
+  frames.push({ name: 'floor_stone', x: 160, y: 48, w, h });
+
+  // ==========================================================================
+  // WALL TILES (left side - colored wall panels)
+  // ==========================================================================
+
+  // Wall panels with baseboards
+  frames.push({ name: 'wall_blue_top', x: 0, y: 32, w, h });
+  frames.push({ name: 'wall_blue_bottom', x: 0, y: 48, w, h });
+  frames.push({ name: 'wall_yellow_top', x: 0, y: 64, w, h });
+  frames.push({ name: 'wall_yellow_bottom', x: 0, y: 80, w, h });
+  frames.push({ name: 'wall_wood_top', x: 0, y: 96, w, h });
+  frames.push({ name: 'wall_wood_bottom', x: 0, y: 112, w, h });
+  frames.push({ name: 'wall_white_top', x: 0, y: 128, w, h });
+  frames.push({ name: 'wall_white_bottom', x: 0, y: 144, w, h });
+  frames.push({ name: 'wall_grey_top', x: 0, y: 160, w, h });
+  frames.push({ name: 'wall_grey_bottom', x: 0, y: 176, w, h });
+  frames.push({ name: 'wall_pink_top', x: 0, y: 192, w, h });
+  frames.push({ name: 'wall_pink_bottom', x: 0, y: 208, w, h });
+
+  // Wall with windows
+  frames.push({ name: 'wall_window_top', x: 16, y: 32, w: 32, h });
+  frames.push({ name: 'wall_window_bottom', x: 16, y: 48, w: 32, h });
+
+  // Baseboard/ceiling trim
+  frames.push({ name: 'ceiling_trim', x: 48, y: 0, w, h });
+  frames.push({ name: 'baseboard', x: 48, y: 16, w, h });
 
   return frames;
 }

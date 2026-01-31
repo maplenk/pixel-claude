@@ -162,6 +162,7 @@ export function drawWorkspace(
   drawWaterCooler(ctx, time);
   drawDesk(ctx, time, state);
   drawLamp(ctx, time);
+  drawPlants(ctx);
 
   // 5. Character(s)
   const target = getTargetPosition(state.activity);
@@ -187,46 +188,98 @@ export function drawWorkspace(
 // =============================================================================
 function drawFloor(ctx: CanvasRenderingContext2D): void {
   const floorY = SCENE_TOP + SCENE_HEIGHT * 0.55;
+  const floorHeight = IH - FOOTER_HEIGHT - floorY;
 
-  // Floor gradient
-  const grad = ctx.createLinearGradient(0, floorY, 0, IH - FOOTER_HEIGHT);
-  grad.addColorStop(0, P.floorDark);
-  grad.addColorStop(1, P.floorMid);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, floorY, IW, IH - FOOTER_HEIGHT - floorY);
+  // Try to use LimeZu Room Builder floor tiles
+  const roomSheet = getSprite('limezu-room');
 
-  // Floor grid
-  ctx.strokeStyle = P.floorGrid;
-  ctx.lineWidth = 1;
-  for (let x = 0; x < IW; x += 20) {
-    ctx.beginPath();
-    ctx.moveTo(x, floorY);
-    ctx.lineTo(x, IH - FOOTER_HEIGHT);
-    ctx.stroke();
-  }
-  for (let y = floorY; y < IH - FOOTER_HEIGHT; y += 15) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(IW, y);
-    ctx.stroke();
+  if (roomSheet) {
+    // Tile the floor with wood herringbone pattern
+    const tileSize = 16;
+    for (let ty = 0; ty < floorHeight; ty += tileSize) {
+      for (let tx = 0; tx < IW; tx += tileSize) {
+        // Alternate between wood tones for visual interest
+        const variant = ((tx / tileSize) + (ty / tileSize)) % 3;
+        const tileName = variant === 0 ? 'floor_wood_light' : variant === 1 ? 'floor_wood_medium' : 'floor_wood_herringbone';
+        if (roomSheet.frames.has(tileName)) {
+          drawSpriteFrame(ctx, roomSheet, tileName, tx, floorY + ty);
+        } else {
+          // Fallback to grid-based frame
+          drawSpriteFrame(ctx, roomSheet, 'room_4_5', tx, floorY + ty);
+        }
+      }
+    }
+  } else {
+    // Fallback: procedural floor
+    const grad = ctx.createLinearGradient(0, floorY, 0, IH - FOOTER_HEIGHT);
+    grad.addColorStop(0, P.floorDark);
+    grad.addColorStop(1, P.floorMid);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, floorY, IW, floorHeight);
+
+    // Floor grid
+    ctx.strokeStyle = P.floorGrid;
+    ctx.lineWidth = 1;
+    for (let x = 0; x < IW; x += 20) {
+      ctx.beginPath();
+      ctx.moveTo(x, floorY);
+      ctx.lineTo(x, IH - FOOTER_HEIGHT);
+      ctx.stroke();
+    }
+    for (let y = floorY; y < IH - FOOTER_HEIGHT; y += 15) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(IW, y);
+      ctx.stroke();
+    }
   }
 }
 
 function drawWalls(ctx: CanvasRenderingContext2D): void {
   const wallBottom = SCENE_TOP + SCENE_HEIGHT * 0.55;
+  const wallHeight = wallBottom - SCENE_TOP;
 
-  // Wall gradient
-  const grad = ctx.createLinearGradient(0, SCENE_TOP, 0, wallBottom);
-  grad.addColorStop(0, P.wallDark);
-  grad.addColorStop(1, P.wallMid);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, SCENE_TOP, IW, wallBottom - SCENE_TOP);
+  // Try to use LimeZu Room Builder wall tiles
+  const roomSheet = getSprite('limezu-room');
 
-  // Baseboard
-  ctx.fillStyle = P.woodDark;
-  ctx.fillRect(0, wallBottom - 4, IW, 4);
-  ctx.fillStyle = P.woodLight;
-  ctx.fillRect(0, wallBottom - 4, IW, 1);
+  if (roomSheet) {
+    // Tile walls with colored panels
+    const tileSize = 16;
+    const rows = Math.ceil(wallHeight / tileSize);
+
+    for (let tx = 0; tx < IW; tx += tileSize) {
+      for (let row = 0; row < rows; row++) {
+        const ty = SCENE_TOP + row * tileSize;
+        // Use blue walls (office feel)
+        const tileName = row < rows - 1 ? 'wall_blue_top' : 'wall_blue_bottom';
+        if (roomSheet.frames.has(tileName)) {
+          drawSpriteFrame(ctx, roomSheet, tileName, tx, ty);
+        } else {
+          // Fallback to grid-based frame
+          drawSpriteFrame(ctx, roomSheet, 'room_2_0', tx, ty);
+        }
+      }
+    }
+
+    // Baseboard
+    ctx.fillStyle = P.woodDark;
+    ctx.fillRect(0, wallBottom - 4, IW, 4);
+    ctx.fillStyle = P.woodLight;
+    ctx.fillRect(0, wallBottom - 4, IW, 1);
+  } else {
+    // Fallback: procedural walls
+    const grad = ctx.createLinearGradient(0, SCENE_TOP, 0, wallBottom);
+    grad.addColorStop(0, P.wallDark);
+    grad.addColorStop(1, P.wallMid);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, SCENE_TOP, IW, wallHeight);
+
+    // Baseboard
+    ctx.fillStyle = P.woodDark;
+    ctx.fillRect(0, wallBottom - 4, IW, 4);
+    ctx.fillStyle = P.woodLight;
+    ctx.fillRect(0, wallBottom - 4, IW, 1);
+  }
 }
 
 // =============================================================================
@@ -642,6 +695,65 @@ function drawLamp(ctx: CanvasRenderingContext2D, t: number): void {
 }
 
 // =============================================================================
+// PLANTS (using LimeZu Interiors sprites)
+// =============================================================================
+function drawPlants(ctx: CanvasRenderingContext2D): void {
+  const interiors = getSprite('limezu-interiors');
+
+  if (interiors) {
+    // Plant in corner near water cooler
+    const plantY = SCENE_TOP + SCENE_HEIGHT * 0.35;
+    if (interiors.frames.has('plant_medium')) {
+      drawSpriteFrame(ctx, interiors, 'plant_medium', 2, plantY);
+    } else {
+      // Try grid-based frame (row 19-20 area has plants)
+      drawSpriteFrame(ctx, interiors, 'interior_19_1', 2, plantY);
+    }
+
+    // Small plant on desk area (right side)
+    const deskPlantY = SCENE_TOP + SCENE_HEIGHT * 0.48;
+    if (interiors.frames.has('plant_small')) {
+      drawSpriteFrame(ctx, interiors, 'plant_small', IW - 45, deskPlantY);
+    } else {
+      drawSpriteFrame(ctx, interiors, 'interior_20_0', IW - 45, deskPlantY);
+    }
+
+    // Tall palm near server rack
+    const palmY = SCENE_TOP + SCENE_HEIGHT * 0.25;
+    if (interiors.frames.has('palm_tree')) {
+      drawSpriteFrame(ctx, interiors, 'palm_tree', IW - 55, palmY);
+    }
+  } else {
+    // Fallback: procedural plants
+    drawProceduralPlant(ctx, 5, SCENE_TOP + SCENE_HEIGHT * 0.4, 'medium');
+    drawProceduralPlant(ctx, IW - 42, SCENE_TOP + SCENE_HEIGHT * 0.5, 'small');
+  }
+}
+
+function drawProceduralPlant(ctx: CanvasRenderingContext2D, x: number, y: number, size: 'small' | 'medium' | 'large'): void {
+  const h = size === 'small' ? 12 : size === 'medium' ? 20 : 30;
+  const w = size === 'small' ? 8 : size === 'medium' ? 12 : 18;
+
+  // Pot
+  ctx.fillStyle = '#8b4513';
+  ctx.fillRect(x, y + h - 6, w, 6);
+  ctx.fillStyle = '#654321';
+  ctx.fillRect(x + 1, y + h - 5, w - 2, 1);
+
+  // Leaves
+  ctx.fillStyle = '#228b22';
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2 - 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Highlight
+  ctx.fillStyle = '#32cd32';
+  ctx.beginPath();
+  ctx.ellipse(x + w / 3, y + h / 3, w / 4, h / 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// =============================================================================
 // CHARACTER
 // =============================================================================
 function getTargetPosition(activity: Activity): { x: number; y: number } {
@@ -833,27 +945,43 @@ function drawMiniCharacter(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.ellipse(x, y + 1, 4, 1.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Try to use sprite
-  const charSheet = getSprite('characters');
-  if (charSheet) {
-    // Use different character frames for agents
-    const frameIdx = Math.floor(t / 300) % 2;
-    const frameName = agent.status === 'running' ? `walk_${frameIdx}` : `idle_${frameIdx}`;
+  // Try to use Alex sprites for sub-agents (different character than main Adam)
+  const alexIdle = getSprite('limezu-alex-idle');
+  const alexSit = getSprite('limezu-alex-sit');
 
-    ctx.save();
-    ctx.translate(x - 8, y - 16);
-    ctx.scale(scale, scale);
-    drawSpriteFrame(ctx, charSheet, frameName, 0, 0);
-    ctx.restore();
+  if (alexIdle || alexSit) {
+    // Use Alex LimeZu sprites for sub-agents
+    const sheet = agent.status === 'running' ? alexIdle : (alexSit || alexIdle);
+    const animPrefix = agent.status === 'running' ? 'alex_idle' : 'alex_sit';
+
+    if (sheet) {
+      const frameName = getLimeZuFrame(animPrefix, t, 'down');
+      ctx.save();
+      ctx.translate(x - 8 * scale, y - 32 * scale);
+      ctx.scale(scale, scale);
+      drawSpriteFrame(ctx, sheet, frameName, 0, 0);
+      ctx.restore();
+    }
   } else {
-    // Fallback: Procedural mini character
-    // Body
-    ctx.fillStyle = agent.status === 'error' ? P.uiError : agent.status === 'completed' ? P.uiAccent : P.shirtBlue;
-    ctx.fillRect(x - 3 * scale, y - 12 * scale, 6 * scale, 8 * scale);
+    // Fallback: Try OpenGameArt characters
+    const charSheet = getSprite('characters');
+    if (charSheet) {
+      const frameIdx = Math.floor(t / 300) % 2;
+      const frameName = agent.status === 'running' ? `walk_${frameIdx}` : `idle_${frameIdx}`;
 
-    // Head
-    ctx.fillStyle = P.hairDark;
-    ctx.fillRect(x - 3 * scale, y - 18 * scale, 6 * scale, 5 * scale);
+      ctx.save();
+      ctx.translate(x - 8, y - 16);
+      ctx.scale(scale, scale);
+      drawSpriteFrame(ctx, charSheet, frameName, 0, 0);
+      ctx.restore();
+    } else {
+      // Fallback: Procedural mini character
+      ctx.fillStyle = agent.status === 'error' ? P.uiError : agent.status === 'completed' ? P.uiAccent : P.shirtBlue;
+      ctx.fillRect(x - 3 * scale, y - 12 * scale, 6 * scale, 8 * scale);
+
+      ctx.fillStyle = P.hairDark;
+      ctx.fillRect(x - 3 * scale, y - 18 * scale, 6 * scale, 5 * scale);
+    }
   }
 
   // Status indicator (always show)
