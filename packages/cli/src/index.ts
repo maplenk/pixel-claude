@@ -181,4 +181,6 @@ program
     }
   });
 
-program.parse();
+// Filter out standalone '--' from argv (pnpm passes it through)
+const args = process.argv.filter((arg, i, arr) => !(arg === '--' && arr[i - 1] !== '--'));
+program.parse(args);

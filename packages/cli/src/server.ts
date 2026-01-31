@@ -508,7 +508,7 @@ function stallSign(){
   cx.rotate(-Math.PI/2);
   cx.fillStyle='#fff';
   cx.font='bold 6px monospace';
-  cx.fillText(CO,0,0);
+  cx.fillText('RAMEN',0,0);
   cx.restore();
 }
 
@@ -629,23 +629,52 @@ function prepBoard(t){
 // Pot and flame - cook station (center, slightly right)
 function potAndFlame(t){
   const x=IW*0.65,y=IH*0.42;
+  const isRunning=mode==='running';
+  const isError=mode==='error';
 
   // Shadow
   cx.fillStyle=P.shadow;
   cx.beginPath();cx.ellipse(x,y+6,14,3,0,0,Math.PI*2);cx.fill();
 
-  // Flames
-  const intensity=mode==='running'?1:0.4;
-  for(let layer=0;layer<2;layer++){
-    for(let i=0;i<4;i++){
-      const fh=3+Math.sin(t/60+i*1.3+layer)*2;
-      const colors=[P.flame1,P.flame2,P.flame3];
-      cx.fillStyle=colors[(i+layer)%3];
-      cx.globalAlpha=intensity*(layer===0?0.6:1);
-      cx.fillRect(x-7+i*4-layer,y+2-fh,2,fh);
+  // Fire glow on ground when running
+  if(isRunning){
+    cx.fillStyle='rgba(255,100,30,0.25)';
+    cx.beginPath();cx.ellipse(x,y+8,20,5,0,0,Math.PI*2);cx.fill();
+  }
+
+  // Flames - bigger and more dramatic when running
+  const intensity=isRunning?1:isError?0.2:0.4;
+  const flameCount=isRunning?6:4;
+  const flameHeight=isRunning?8:5;
+
+  for(let layer=0;layer<(isRunning?3:2);layer++){
+    for(let i=0;i<flameCount;i++){
+      const speed=isRunning?40:60;
+      const fh=flameHeight+Math.sin(t/speed+i*1.3+layer)*3;
+      const colors=[P.flame1,P.flame2,P.flame3,'#fff8dc'];
+      cx.fillStyle=colors[(i+layer)%colors.length];
+      cx.globalAlpha=intensity*(layer===0?0.5:layer===1?0.8:1);
+      const fx=x-9+i*3-layer;
+      cx.fillRect(fx,y+2-fh,2,fh);
+      // Flame tips
+      if(isRunning&&layer===2){
+        cx.fillStyle='rgba(255,220,100,0.6)';
+        cx.fillRect(fx,y+1-fh,2,2);
+      }
     }
   }
   cx.globalAlpha=1;
+
+  // Smoke when error (fire going out)
+  if(isError){
+    for(let i=0;i<5;i++){
+      const age=(t/50+i*15)%30;
+      const sy=y-age*0.8;
+      const sx=x-4+i*2+Math.sin(t/200+i)*3;
+      cx.fillStyle='rgba(80,80,80,'+(0.4-age/75)+')';
+      cx.beginPath();cx.arc(sx,sy,2+age/10,0,Math.PI*2);cx.fill();
+    }
+  }
 
   // Pot
   cx.fillStyle=P.potDark;
@@ -655,10 +684,10 @@ function potAndFlame(t){
   cx.fillStyle=P.potHighlight;
   cx.fillRect(x-9,y-10,18,1);
 
-  // Broth
-  cx.fillStyle=P.brothDark;
+  // Broth - bubbles more when running, darker when error
+  cx.fillStyle=isError?'#8b7355':P.brothDark;
   cx.fillRect(x-8,y-9,16,10);
-  cx.fillStyle=P.broth;
+  cx.fillStyle=isError?'#a08060':P.broth;
   cx.fillRect(x-8,y-9,16,8);
 
   // Handles
@@ -666,14 +695,20 @@ function potAndFlame(t){
   cx.fillRect(x-13,y-7,3,5);
   cx.fillRect(x+10,y-7,3,5);
 
-  // Bubbles
-  if(mode==='running'){
-    for(let i=0;i<4;i++){
-      const by=y-7+Math.sin(t/100+i*1.5)*2;
-      const bx=x-6+i*4;
-      const bs=1+Math.sin(t/80+i)*0.3;
-      cx.fillStyle='rgba(255,255,255,0.7)';
+  // Bubbles when running - more vigorous
+  if(isRunning){
+    for(let i=0;i<6;i++){
+      const by=y-7+Math.sin(t/60+i*1.2)*2;
+      const bx=x-7+i*3;
+      const bs=1.2+Math.sin(t/50+i)*0.4;
+      cx.fillStyle='rgba(255,255,255,0.8)';
       cx.beginPath();cx.arc(bx,by,bs,0,Math.PI*2);cx.fill();
+    }
+    // Boiling splash
+    const splash=Math.floor(t/150)%3;
+    if(splash===0){
+      cx.fillStyle='rgba(212,165,116,0.6)';
+      cx.fillRect(x-3,y-12,2,3);
     }
   }
 
@@ -829,7 +864,7 @@ function steam(t,x,y,intensity=1){
 }
 
 // Lighting pass for vertical layout
-function drawLighting(){
+function drawLighting(t){
   cx.save();
   // Dim scene slightly
   cx.globalCompositeOperation='multiply';
@@ -843,6 +878,24 @@ function drawLighting(){
   g.addColorStop(1,'rgba(255,200,140,0)');
   cx.fillStyle=g;
   cx.fillRect(0,0,IW,IH);
+
+  // Fire glow when running (cooking)
+  if(mode==='running'){
+    const flicker=0.3+Math.sin(t/80)*0.1;
+    const fireG=cx.createRadialGradient(IW*0.65,IH*0.42,5,IW*0.65,IH*0.42,60);
+    fireG.addColorStop(0,'rgba(255,120,50,'+flicker+')');
+    fireG.addColorStop(0.5,'rgba(255,80,30,'+flicker*0.5+')');
+    fireG.addColorStop(1,'rgba(255,50,20,0)');
+    cx.fillStyle=fireG;
+    cx.fillRect(0,0,IW,IH);
+  }
+
+  // Red warning tint when error
+  if(mode==='error'){
+    cx.globalCompositeOperation='overlay';
+    cx.fillStyle='rgba(255,50,50,0.1)';
+    cx.fillRect(0,0,IW,IH);
+  }
 
   // Dim menu area when not thinking
   if(mode!=='thinking'){
@@ -1002,10 +1055,43 @@ function ninjaCook(x,y,t){
 
   // Mode-specific effects
   if(mode==='error'&&!walking){
-    // Sweat drop
+    // Multiple sweat drops
     cx.fillStyle='#90cdf4';
     cx.fillRect(x+4,by-18,1,2);
     cx.fillRect(x+4,by-16,2,1);
+    cx.fillRect(x-5,by-17,1,2);
+    cx.fillRect(x-6,by-15,2,1);
+
+    // Panic lines around head
+    cx.strokeStyle='rgba(255,100,100,0.6)';
+    cx.lineWidth=1;
+    for(let i=0;i<3;i++){
+      const angle=-0.5+i*0.5;
+      cx.beginPath();
+      cx.moveTo(x+Math.cos(angle)*8,by-18+Math.sin(angle)*8);
+      cx.lineTo(x+Math.cos(angle)*11,by-18+Math.sin(angle)*11);
+      cx.stroke();
+    }
+
+    // Spilled bowl on the ground
+    cx.fillStyle=P.bowlShadow;
+    cx.save();
+    cx.translate(x+12,by+2);
+    cx.rotate(0.3);
+    cx.beginPath();cx.ellipse(0,0,6,2,0,0,Math.PI);cx.fill();
+    cx.fillStyle=P.bowl;
+    cx.beginPath();cx.ellipse(0,-1,5,1.5,0,0,Math.PI);cx.fill();
+    cx.restore();
+
+    // Spilled broth puddle
+    cx.fillStyle='rgba(212,165,116,0.5)';
+    cx.beginPath();cx.ellipse(x+16,by+3,8,2,0,0,Math.PI*2);cx.fill();
+
+    // Scattered noodles
+    cx.fillStyle=P.noodles;
+    cx.fillRect(x+10,by+1,3,1);
+    cx.fillRect(x+14,by+2,4,1);
+    cx.fillRect(x+18,by+1,2,1);
 
     // Dropped chopsticks
     cx.fillStyle=P.wood;
@@ -1070,7 +1156,7 @@ function render(t){
   ninjaCook(mx,my,t);
 
   // 4. Lighting
-  drawLighting();
+  drawLighting(t);
   vignette();
 
   // 5. Foreground
