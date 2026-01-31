@@ -1,0 +1,2 @@
+# Placeholder for PWA icons
+# Generate icons with: npx pwa-asset-generator favicon.svg icons/ --icon-only

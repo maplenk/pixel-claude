@@ -1,0 +1,20 @@
+{
+  "name": "pixelhq",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pixel art office PWA that visualizes Claude Code events",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "cli": "pnpm --filter @pixelhq/cli dev",
+    "pwa": "pnpm --filter @pixelhq/pwa dev"
+  },
+  "keywords": [
+    "pixel-art",
+    "pwa",
+    "claude-code",
+    "visualization"
+  ],
+  "author": "",
+  "license": "MIT"
+}
