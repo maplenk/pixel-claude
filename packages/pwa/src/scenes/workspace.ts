@@ -190,48 +190,27 @@ function drawFloor(ctx: CanvasRenderingContext2D): void {
   const floorY = SCENE_TOP + SCENE_HEIGHT * 0.55;
   const floorHeight = IH - FOOTER_HEIGHT - floorY;
 
-  // Try to use LimeZu Room Builder floor tiles
-  const roomSheet = getSprite('limezu-room');
+  // Use procedural floor (cleaner look)
+  const grad = ctx.createLinearGradient(0, floorY, 0, IH - FOOTER_HEIGHT);
+  grad.addColorStop(0, P.floorDark);
+  grad.addColorStop(1, P.floorMid);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, floorY, IW, floorHeight);
 
-  if (roomSheet) {
-    // Tile the floor with wood herringbone pattern
-    const tileSize = 16;
-    for (let ty = 0; ty < floorHeight; ty += tileSize) {
-      for (let tx = 0; tx < IW; tx += tileSize) {
-        // Alternate between wood tones for visual interest
-        const variant = ((tx / tileSize) + (ty / tileSize)) % 3;
-        const tileName = variant === 0 ? 'floor_wood_light' : variant === 1 ? 'floor_wood_medium' : 'floor_wood_herringbone';
-        if (roomSheet.frames.has(tileName)) {
-          drawSpriteFrame(ctx, roomSheet, tileName, tx, floorY + ty);
-        } else {
-          // Fallback to grid-based frame
-          drawSpriteFrame(ctx, roomSheet, 'room_4_5', tx, floorY + ty);
-        }
-      }
-    }
-  } else {
-    // Fallback: procedural floor
-    const grad = ctx.createLinearGradient(0, floorY, 0, IH - FOOTER_HEIGHT);
-    grad.addColorStop(0, P.floorDark);
-    grad.addColorStop(1, P.floorMid);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, floorY, IW, floorHeight);
-
-    // Floor grid
-    ctx.strokeStyle = P.floorGrid;
-    ctx.lineWidth = 1;
-    for (let x = 0; x < IW; x += 20) {
-      ctx.beginPath();
-      ctx.moveTo(x, floorY);
-      ctx.lineTo(x, IH - FOOTER_HEIGHT);
-      ctx.stroke();
-    }
-    for (let y = floorY; y < IH - FOOTER_HEIGHT; y += 15) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(IW, y);
-      ctx.stroke();
-    }
+  // Floor grid for depth
+  ctx.strokeStyle = P.floorGrid;
+  ctx.lineWidth = 1;
+  for (let x = 0; x < IW; x += 20) {
+    ctx.beginPath();
+    ctx.moveTo(x, floorY);
+    ctx.lineTo(x, IH - FOOTER_HEIGHT);
+    ctx.stroke();
+  }
+  for (let y = floorY; y < IH - FOOTER_HEIGHT; y += 15) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(IW, y);
+    ctx.stroke();
   }
 }
 
@@ -239,47 +218,18 @@ function drawWalls(ctx: CanvasRenderingContext2D): void {
   const wallBottom = SCENE_TOP + SCENE_HEIGHT * 0.55;
   const wallHeight = wallBottom - SCENE_TOP;
 
-  // Try to use LimeZu Room Builder wall tiles
-  const roomSheet = getSprite('limezu-room');
+  // Use procedural walls (cleaner look, Room Builder tiles need better mapping)
+  const grad = ctx.createLinearGradient(0, SCENE_TOP, 0, wallBottom);
+  grad.addColorStop(0, P.wallDark);
+  grad.addColorStop(1, P.wallMid);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, SCENE_TOP, IW, wallHeight);
 
-  if (roomSheet) {
-    // Tile walls with colored panels
-    const tileSize = 16;
-    const rows = Math.ceil(wallHeight / tileSize);
-
-    for (let tx = 0; tx < IW; tx += tileSize) {
-      for (let row = 0; row < rows; row++) {
-        const ty = SCENE_TOP + row * tileSize;
-        // Use blue walls (office feel)
-        const tileName = row < rows - 1 ? 'wall_blue_top' : 'wall_blue_bottom';
-        if (roomSheet.frames.has(tileName)) {
-          drawSpriteFrame(ctx, roomSheet, tileName, tx, ty);
-        } else {
-          // Fallback to grid-based frame
-          drawSpriteFrame(ctx, roomSheet, 'room_2_0', tx, ty);
-        }
-      }
-    }
-
-    // Baseboard
-    ctx.fillStyle = P.woodDark;
-    ctx.fillRect(0, wallBottom - 4, IW, 4);
-    ctx.fillStyle = P.woodLight;
-    ctx.fillRect(0, wallBottom - 4, IW, 1);
-  } else {
-    // Fallback: procedural walls
-    const grad = ctx.createLinearGradient(0, SCENE_TOP, 0, wallBottom);
-    grad.addColorStop(0, P.wallDark);
-    grad.addColorStop(1, P.wallMid);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, SCENE_TOP, IW, wallHeight);
-
-    // Baseboard
-    ctx.fillStyle = P.woodDark;
-    ctx.fillRect(0, wallBottom - 4, IW, 4);
-    ctx.fillStyle = P.woodLight;
-    ctx.fillRect(0, wallBottom - 4, IW, 1);
-  }
+  // Baseboard
+  ctx.fillStyle = P.woodDark;
+  ctx.fillRect(0, wallBottom - 4, IW, 4);
+  ctx.fillStyle = P.woodLight;
+  ctx.fillRect(0, wallBottom - 4, IW, 1);
 }
 
 // =============================================================================
@@ -695,39 +645,12 @@ function drawLamp(ctx: CanvasRenderingContext2D, t: number): void {
 }
 
 // =============================================================================
-// PLANTS (using LimeZu Interiors sprites)
+// PLANTS (procedural for now - sprite coordinates need proper mapping)
 // =============================================================================
 function drawPlants(ctx: CanvasRenderingContext2D): void {
-  const interiors = getSprite('limezu-interiors');
-
-  if (interiors) {
-    // Plant in corner near water cooler
-    const plantY = SCENE_TOP + SCENE_HEIGHT * 0.35;
-    if (interiors.frames.has('plant_medium')) {
-      drawSpriteFrame(ctx, interiors, 'plant_medium', 2, plantY);
-    } else {
-      // Try grid-based frame (row 19-20 area has plants)
-      drawSpriteFrame(ctx, interiors, 'interior_19_1', 2, plantY);
-    }
-
-    // Small plant on desk area (right side)
-    const deskPlantY = SCENE_TOP + SCENE_HEIGHT * 0.48;
-    if (interiors.frames.has('plant_small')) {
-      drawSpriteFrame(ctx, interiors, 'plant_small', IW - 45, deskPlantY);
-    } else {
-      drawSpriteFrame(ctx, interiors, 'interior_20_0', IW - 45, deskPlantY);
-    }
-
-    // Tall palm near server rack
-    const palmY = SCENE_TOP + SCENE_HEIGHT * 0.25;
-    if (interiors.frames.has('palm_tree')) {
-      drawSpriteFrame(ctx, interiors, 'palm_tree', IW - 55, palmY);
-    }
-  } else {
-    // Fallback: procedural plants
-    drawProceduralPlant(ctx, 5, SCENE_TOP + SCENE_HEIGHT * 0.4, 'medium');
-    drawProceduralPlant(ctx, IW - 42, SCENE_TOP + SCENE_HEIGHT * 0.5, 'small');
-  }
+  // Procedural plants (cleaner until sprite coords are properly mapped)
+  drawProceduralPlant(ctx, 5, SCENE_TOP + SCENE_HEIGHT * 0.4, 'medium');
+  drawProceduralPlant(ctx, IW - 42, SCENE_TOP + SCENE_HEIGHT * 0.5, 'small');
 }
 
 function drawProceduralPlant(ctx: CanvasRenderingContext2D, x: number, y: number, size: 'small' | 'medium' | 'large'): void {

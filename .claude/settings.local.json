@@ -1,0 +1,76 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(npx tsx:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "WebSearch",
+      "WebFetch(domain:guttykreum.itch.io)",
+      "WebFetch(domain:frozentaurus.itch.io)",
+      "WebFetch(domain:opengameart.org)",
+      "WebFetch(domain:luizatorello.itch.io)",
+      "WebFetch(domain:itch.io)",
+      "Bash(jq:*)",
+      "Bash(chmod:*)",
+      "Bash(pnpm run build:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pkill:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:imperfect-blue.itch.io)",
+      "WebFetch(domain:free-game-assets.itch.io)",
+      "Bash(ls:*)",
+      "Bash(for f in *.png)",
+      "WebFetch(domain:2dpig.itch.io)",
+      "WebFetch(domain:arlantr.itch.io)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -c '{type: \"PreToolUse\", tool: .tool_name}' | curl -s -X POST http://127.0.0.1:8787/hook -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 &"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -c '{type: \"PostToolUse\", tool: .tool_name}' | curl -s -X POST http://127.0.0.1:8787/hook -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 &"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"type\":\"Stop\"}' | curl -s -X POST http://127.0.0.1:8787/hook -H 'Content-Type: application/json' -d @- > /dev/null 2>&1 &"
+          }
+        ]
+      }
+    ]
+  }
+}
