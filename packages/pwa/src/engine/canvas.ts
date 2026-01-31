@@ -40,19 +40,18 @@ export function setupCanvas(canvasId: string): CanvasContext {
 function calculateScale(): number {
   const { internalWidth, internalHeight } = ART_CONFIG;
 
-  // Calculate integer scale that fits the screen
-  const scaleX = Math.floor(window.innerWidth / internalWidth);
-  const scaleY = Math.floor(window.innerHeight / internalHeight);
+  // Calculate scale to cover the screen
+  const scaleX = window.innerWidth / internalWidth;
+  const scaleY = window.innerHeight / internalHeight;
 
-  // Use the smaller scale to ensure it fits, minimum 1
-  return Math.max(1, Math.min(scaleX, scaleY));
+  // Use larger scale to fill screen
+  return Math.max(scaleX, scaleY);
 }
 
-function applyScale(canvas: HTMLCanvasElement, scale: number): void {
-  const { internalWidth, internalHeight } = ART_CONFIG;
-
-  canvas.style.width = `${internalWidth * scale}px`;
-  canvas.style.height = `${internalHeight * scale}px`;
+function applyScale(canvas: HTMLCanvasElement, _scale: number): void {
+  // Fill the viewport
+  canvas.style.width = `${window.innerWidth}px`;
+  canvas.style.height = `${window.innerHeight}px`;
 }
 
 export function clearCanvas(ctx: CanvasRenderingContext2D, color = '#1a1a2e'): void {

@@ -74,5 +74,22 @@ function updateConnectionStatus(state: 'disconnected' | 'connecting' | 'connecte
   }
 }
 
+// Keyboard shortcuts for testing (1-6 for modes)
+document.addEventListener('keydown', (e) => {
+  const modeMap: Record<string, Mode> = {
+    '1': 'idle',
+    '2': 'typing',
+    '3': 'running',
+    '4': 'thinking',
+    '5': 'celebrate',
+    '6': 'error',
+  };
+
+  if (modeMap[e.key]) {
+    currentMode = modeMap[e.key];
+    console.log(`Mode: ${currentMode}`);
+  }
+});
+
 // Start the app
 init().catch(console.error);
