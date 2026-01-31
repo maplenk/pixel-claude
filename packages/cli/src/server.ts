@@ -121,11 +121,17 @@ export function createServers(config: ServerConfig, stateMachine: StateMachine) 
 
 function handleHookEvent(event: HookEvent, stateMachine: StateMachine): void {
   if (event.type === 'PreToolUse') {
-    if (event.tool === 'Write' || event.tool === 'Edit') {
+    const tool = event.tool || '';
+    // Prep (typing) - writing/editing code
+    if (['Write', 'Edit', 'NotebookEdit'].includes(tool)) {
       stateMachine.emit('typing', 5000);
-    } else if (event.tool === 'Bash') {
+    }
+    // Cook (running) - executing commands
+    else if (tool === 'Bash') {
       stateMachine.emit('running', 10000);
-    } else if (event.tool === 'Read' || event.tool === 'Grep' || event.tool === 'Glob') {
+    }
+    // Think (thinking) - reading/searching/researching
+    else if (['Read', 'Grep', 'Glob', 'Task', 'WebFetch', 'WebSearch'].includes(tool)) {
       stateMachine.emit('thinking', 3000);
     }
   } else if (event.type === 'Stop') {
@@ -143,13 +149,13 @@ function getPWAHTML(ip: string, wsPort: number, token: string, companyName: stri
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <meta name="theme-color" content="#c9b8db">
+  <meta name="theme-color" content="#0d1b2a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>${companyName}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    html,body{width:100vw;height:100vh;height:100dvh;overflow:hidden;background:#c9b8db;touch-action:none;position:fixed;inset:0}
+    html,body{width:100vw;height:100vh;height:100dvh;overflow:hidden;background:#0d1b2a;touch-action:none;position:fixed;inset:0}
     #c{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
     #s{position:fixed;top:max(env(safe-area-inset-top),8px);left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:16px;font:500 11px system-ui;z-index:100;background:rgba(255,255,255,.9);color:#333;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:opacity .3s,transform .3s}
     #s.e{background:rgba(255,100,100,.9);color:#fff}
@@ -175,27 +181,31 @@ function resize(){
 resize();
 addEventListener('resize',resize);
 
-// Colors
+// Ramen stall color palette
 const P={
-  fl:'#d4c4e3',fl2:'#c9b8db',fll:'#b8a5cc',
-  wl:'#e8dff0',wl2:'#d4c4e3',
-  dk:'#8b7355',dkt:'#a08568',dkd:'#6b5344',
-  ch:'#5a67d8',chd:'#4c51bf',
-  mn:'#2d3748',ms:'#1a1a2e',mg:'#00ff88',
-  pl:'#68d391',pld:'#48bb78',pt:'#e53e3e',ptd:'#c53030',
-  wn:'#87ceeb',wnf:'#4a5568',
-  sh:'#a08568',shd:'#8b7355',
-  bk1:'#fc8181',bk2:'#63b3ed',bk3:'#68d391',bk4:'#f6e05e',bk5:'#b794f4',
-  sf:'#667eea',sfd:'#5a67d8',
-  rg:'#fbd38d',rgd:'#f6ad55',
-  sg:'#fff',sgt:'#2d3748',
-  wb:'#fff',wbf:'#4a5568',
-  sk:'#ffd9b3',hr:'#4a3728',sr:'#667eea',pn:'#2d3748',so:'#1a202c'
+  // Night sky
+  sky:'#0d1b2a',skyLight:'#1b263b',stars:'#fff',
+  // Lanterns
+  lanternGlow:'#ff6b35',lanternBody:'#c1121f',lanternLight:'#ffd166',
+  // Wood/stall
+  wood:'#8b5a2b',woodLight:'#a0522d',woodDark:'#5d4037',counter:'#6d4c41',
+  // Pot & flame
+  pot:'#2d3748',potInner:'#1a202c',
+  flame1:'#ff6b35',flame2:'#ffd166',flame3:'#ff8c42',broth:'#d4a574',
+  // Scroll
+  scroll:'#f5f0e1',scrollText:'#2d3748',scrollAccent:'#c1121f',
+  // Prep
+  board:'#deb887',knife:'#c0c0c0',noodles:'#f5deb3',veggies:'#68d391',
+  // Bowl
+  bowl:'#fff',ramen:'#f4a460',egg:'#ffd700',nori:'#2d5016',
+  // Noren
+  noren:'#c1121f',norenDark:'#8b0000',
+  // Character
+  skin:'#ffd9b3',hair:'#1a1a2e',headband:'#c1121f',outfit:'#2d3748',apron:'#fff'
 };
 
-// Character (single developer)
-const charColor={sk:'#ffd9b3',hr:'#4a3728',sr:'#667eea'};
-let mx=W*0.25,my=H*0.6,tx=mx,ty=my;
+// Character position
+let mx=W*0.4,my=H*0.6,tx=mx,ty=my;
 
 function connect(){
   ss('Connecting...');
@@ -208,189 +218,257 @@ function connect(){
 
 function ss(t,h=0,e=0){
   const el=document.getElementById('s');
+  if(!el)return;
   el.textContent=t;el.className=e?'e':'';
   if(h>0)setTimeout(()=>el.classList.add('h'),h);
 }
 
-function floor(){
-  cx.fillStyle=P.fl;cx.fillRect(0,0,W,H);
-  const ts=Math.max(16,Math.min(24,W/20));
-  for(let y=0;y<H;y+=ts)for(let x=0;x<W;x+=ts){
-    cx.fillStyle=((Math.floor(x/ts)+Math.floor(y/ts))%2)?P.fl:P.fl2;
-    cx.fillRect(x,y,ts,ts);
-    cx.strokeStyle=P.fll;cx.lineWidth=.5;cx.strokeRect(x,y,ts,ts);
+// Night sky with stars
+function nightSky(t){
+  const g=cx.createLinearGradient(0,0,0,H*0.5);
+  g.addColorStop(0,P.sky);g.addColorStop(1,P.skyLight);
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+
+  // Twinkling stars
+  for(let i=0;i<20;i++){
+    const twinkle=Math.sin(t/500+i*47)>0.6;
+    if(twinkle){
+      cx.fillStyle=P.stars;
+      const sx=(i*73)%W,sy=H*0.02+(i%7)*12;
+      cx.fillRect(sx,sy,2,2);
+    }
   }
 }
 
-function walls(){
-  const wh=H*0.22;
-  cx.fillStyle=P.wl;cx.fillRect(0,0,W,wh);
-  cx.fillStyle=P.wl2;cx.fillRect(0,wh-5,W,8);
-  cx.fillStyle='#b8a5cc';cx.fillRect(0,wh,W,3);
+// Hanging lanterns with glow
+function lanterns(t){
+  const positions=[W*0.12,W*0.88];
+  positions.forEach((lx,i)=>{
+    const sway=Math.sin(t/1000+i)*2;
+    const ly=H*0.08;
+
+    // String
+    cx.strokeStyle=P.woodDark;cx.lineWidth=1;
+    cx.beginPath();cx.moveTo(lx,0);cx.lineTo(lx+sway,ly);cx.stroke();
+
+    // Glow effect
+    const glowIntensity=0.25+Math.sin(t/200+i)*0.1;
+    cx.fillStyle='rgba(255,107,53,'+glowIntensity+')';
+    cx.beginPath();cx.arc(lx+sway,ly+12,25,0,Math.PI*2);cx.fill();
+
+    // Lantern body
+    cx.fillStyle=P.lanternBody;
+    cx.fillRect(lx+sway-8,ly,16,24);
+
+    // Lantern top/bottom
+    cx.fillStyle=P.woodDark;
+    cx.fillRect(lx+sway-10,ly-2,20,4);
+    cx.fillRect(lx+sway-10,ly+22,20,4);
+
+    // Inner glow
+    cx.fillStyle=P.lanternLight;
+    cx.globalAlpha=0.5+Math.sin(t/150+i)*0.2;
+    cx.fillRect(lx+sway-5,ly+4,10,16);
+    cx.globalAlpha=1;
+  });
 }
 
-function sign(){
-  const sw=CO.length*10+20,sx=W*0.5-sw/2,sy=H*0.04;
-  cx.fillStyle=P.sg;cx.fillRect(sx,sy,sw,28);
-  cx.strokeStyle=P.sgt;cx.lineWidth=2;cx.strokeRect(sx,sy,sw,28);
-  cx.fillStyle=P.sgt;cx.font='bold 14px monospace';cx.fillText(CO,sx+10,sy+19);
+// Menu scroll (for thinking)
+function menuScroll(t){
+  const x=W*0.5,y=H*0.18;
+  const sw=80,sh=50;
+
+  // Scroll background
+  cx.fillStyle=P.scroll;
+  cx.fillRect(x-sw/2,y,sw,sh);
+
+  // Scroll ends (rolled)
+  cx.fillStyle=P.scrollAccent;
+  cx.fillRect(x-sw/2-4,y-2,8,sh+4);
+  cx.fillRect(x+sw/2-4,y-2,8,sh+4);
+
+  // Menu text
+  cx.fillStyle=P.scrollText;
+  cx.font='10px monospace';
+  const items=['ラーメン','味噌','塩','醤油'];
+  items.forEach((item,i)=>{
+    const highlight=mode==='thinking'&&Math.floor(t/500)%4===i;
+    cx.fillStyle=highlight?P.scrollAccent:P.scrollText;
+    cx.fillText(item,x-sw/2+12,y+14+i*10);
+  });
+
+  // Decorative border
+  cx.strokeStyle=P.scrollAccent;cx.lineWidth=1;
+  cx.strokeRect(x-sw/2+4,y+4,sw-8,sh-8);
+
+  return {x,y:y+sh+30};
 }
 
-function windows(t){
-  const wx=W*0.85,wy=H*0.04,ws=Math.min(40,W*0.1);
-  cx.fillStyle=P.wnf;cx.fillRect(wx-3,wy-3,ws+6,ws+6);
-  const g=cx.createLinearGradient(wx,wy,wx,wy+ws);
-  g.addColorStop(0,'#a8d8ea');g.addColorStop(1,'#87ceeb');
-  cx.fillStyle=g;cx.fillRect(wx,wy,ws,ws);
-  cx.strokeStyle=P.wnf;cx.lineWidth=2;
-  cx.beginPath();cx.moveTo(wx+ws/2,wy);cx.lineTo(wx+ws/2,wy+ws);cx.moveTo(wx,wy+ws/2);cx.lineTo(wx+ws,wy+ws/2);cx.stroke();
+// Prep board (for typing/prep)
+function prepBoard(t){
+  const x=W*0.2,y=H*0.55;
 
-  cx.fillStyle='rgba(255,255,255,0.7)';
-  const cx1=wx+ws*0.2+Math.sin(t/2000)*4;
-  cx.beginPath();cx.arc(cx1,wy+ws*0.3,3,0,Math.PI*2);cx.arc(cx1+5,wy+ws*0.25,4,0,Math.PI*2);cx.arc(cx1+10,wy+ws*0.3,3,0,Math.PI*2);cx.fill();
-}
+  // Cutting board
+  cx.fillStyle=P.board;
+  cx.fillRect(x-30,y-15,60,25);
+  cx.fillStyle=P.woodDark;
+  cx.fillRect(x-30,y-15,60,3);
 
-// Desk workstation (for typing/coding)
-function desk(t){
-  const x=W*0.25,y=H*0.55;
+  // Ingredients on board
+  cx.fillStyle=P.veggies;
+  cx.fillRect(x-20,y-8,10,8);
+  cx.fillRect(x-8,y-10,8,10);
 
-  // Chair
-  cx.fillStyle=P.chd;cx.fillRect(x-8,y+15,16,8);
-  cx.fillStyle=P.ch;cx.fillRect(x-10,y,20,18);
+  cx.fillStyle=P.noodles;
+  cx.fillRect(x+5,y-8,18,8);
 
-  // Desk
-  cx.fillStyle=P.dkd;cx.fillRect(x-30,y-8,60,5);
-  cx.fillStyle=P.dk;cx.fillRect(x-30,y-3,60,12);
-  cx.fillStyle=P.dkt;cx.fillRect(x-30,y-10,60,4);
-
-  // Monitor
-  cx.fillStyle=P.mn;cx.fillRect(x-12,y-30,24,18);
-  cx.fillStyle=P.ms;cx.fillRect(x-10,y-28,20,14);
-
-  // Screen content
+  // Knife (animated when prepping)
   if(mode==='typing'){
-    cx.fillStyle='rgba(0,255,136,0.15)';cx.fillRect(x-10,y-28,20,14);
-    cx.fillStyle=P.mg;
-    for(let l=0;l<4;l++)cx.fillRect(x-8,y-26+l*3,10+Math.sin(t/200+l)*4,2);
-    if(Math.floor(t/300)%2)cx.fillRect(x+6,y-26+9,2,2);
+    const chop=Math.floor(t/100)%4;
+    cx.fillStyle=P.knife;
+    cx.save();
+    cx.translate(x+25,y-5-chop*3);
+    cx.fillRect(-2,-12,4,12);
+    cx.fillStyle=P.woodDark;
+    cx.fillRect(-3,0,6,4);
+    cx.restore();
   }else{
-    cx.fillStyle=P.mg;cx.fillRect(x-8,y-26,4,2);cx.fillRect(x-2,y-26,8,2);
-    if(Math.floor(t/600)%2)cx.fillRect(x-8,y-22,4,2);
+    cx.fillStyle=P.knife;
+    cx.fillRect(x+23,y-15,4,10);
+    cx.fillStyle=P.woodDark;
+    cx.fillRect(x+22,y-5,6,4);
   }
-
-  // Monitor stand
-  cx.fillStyle=P.mn;cx.fillRect(x-3,y-12,6,4);cx.fillRect(x-6,y-9,12,2);
-
-  // Keyboard
-  cx.fillStyle='#4a5568';cx.fillRect(x-10,y-5,20,4);
 
   return {x,y:y+20};
 }
 
-// Meeting room with whiteboard (for thinking)
-function meetingRoom(t){
-  const mx=W*0.7,my=H*0.35;
+// Pot and flame (for running/cook)
+function potAndFlame(t){
+  const x=W*0.75,y=H*0.55;
 
-  // Whiteboard on wall
-  const wbw=Math.min(80,W*0.18),wbh=Math.min(50,H*0.2);
-  cx.fillStyle=P.wbf;cx.fillRect(mx-wbw/2-3,my-wbh-3,wbw+6,wbh+6);
-  cx.fillStyle=P.wb;cx.fillRect(mx-wbw/2,my-wbh,wbw,wbh);
-
-  // Content on whiteboard
-  cx.fillStyle='#4a5568';
-  if(mode==='thinking'){
-    // Animated diagrams
-    const frame=Math.floor(t/400)%3;
-    cx.fillRect(mx-wbw/2+8,my-wbh+10,wbw*0.3,2);
-    cx.fillRect(mx-wbw/2+8,my-wbh+18,wbw*0.5,2);
-    cx.fillRect(mx-wbw/2+8,my-wbh+26,wbw*0.2,2);
-    // Box diagram
-    cx.strokeStyle='#5a67d8';cx.lineWidth=2;
-    cx.strokeRect(mx+5,my-wbh+8,20,15);
-    if(frame>0)cx.strokeRect(mx+30,my-wbh+8,15,15);
-    if(frame>1){cx.beginPath();cx.moveTo(mx+25,my-wbh+15);cx.lineTo(mx+30,my-wbh+15);cx.stroke();}
-  }else{
-    cx.fillRect(mx-wbw/2+8,my-wbh+10,wbw*0.4,2);
-    cx.fillRect(mx-wbw/2+8,my-wbh+20,wbw*0.6,2);
+  // Flames (always animated, brighter when cooking)
+  const flameColors=[P.flame1,P.flame2,P.flame3];
+  const intensity=mode==='running'?1:0.5;
+  for(let i=0;i<5;i++){
+    const fh=6+Math.sin(t/80+i*1.5)*4;
+    cx.fillStyle=flameColors[i%3];
+    cx.globalAlpha=intensity;
+    cx.fillRect(x-12+i*6,y+8-fh,4,fh);
   }
+  cx.globalAlpha=1;
 
-  // Meeting table
-  cx.fillStyle=P.dkt;cx.fillRect(mx-25,my+10,50,30);
-  cx.fillStyle=P.dk;cx.fillRect(mx-25,my+8,50,5);
+  // Pot
+  cx.fillStyle=P.pot;
+  cx.fillRect(x-20,y-25,40,30);
+  cx.fillStyle=P.broth;
+  cx.fillRect(x-17,y-22,34,24);
 
-  // Chairs around table
-  cx.fillStyle=P.ch;
-  cx.fillRect(mx-35,my+18,10,15);
-  cx.fillRect(mx+25,my+18,10,15);
+  // Pot handles
+  cx.fillStyle=P.pot;
+  cx.fillRect(x-25,y-15,6,8);
+  cx.fillRect(x+19,y-15,6,8);
 
-  return {x:mx,y:my+50};
-}
-
-// Terminal/Running area
-function terminal(t){
-  const tx=W*0.15,ty=H*0.85;
-
-  // Server rack / terminal
-  cx.fillStyle='#2d3748';cx.fillRect(tx-20,ty-50,40,50);
-  cx.fillStyle='#1a202c';cx.fillRect(tx-18,ty-48,36,20);
-
-  // Blinking lights
-  const colors=['#48bb78','#ed8936','#63b3ed'];
-  for(let i=0;i<3;i++){
-    cx.fillStyle=(mode==='running'&&Math.floor(t/100+i*50)%2)?colors[i]:'#4a5568';
-    cx.fillRect(tx-15+i*12,ty-42,6,4);
-  }
-
-  // Screen
-  cx.fillStyle=P.ms;cx.fillRect(tx-15,ty-35,30,15);
+  // Bubbles (when cooking)
   if(mode==='running'){
-    cx.fillStyle=P.mg;
-    const o=Math.floor(t/60)%5;
-    for(let l=0;l<4;l++)cx.fillRect(tx-13,ty-33+((l+o)%5)*3,20-(l*4)%15,2);
-  }else{
-    cx.fillStyle='#4a5568';cx.fillRect(tx-10,ty-32,10,2);
+    for(let i=0;i<4;i++){
+      const by=y-18+Math.sin(t/120+i*2)*4;
+      const bx=x-12+i*8;
+      cx.fillStyle='rgba(255,255,255,0.6)';
+      cx.beginPath();cx.arc(bx,by,2+i%2,0,Math.PI*2);cx.fill();
+    }
   }
 
-  return {x:tx,y:ty};
+  return {x,y:y+20};
 }
 
-// Lounge area (for idle/celebrate)
-function lounge(){
-  const lx=W*0.75,ly=H*0.75;
+// Counter with noren curtains
+function counter(){
+  const y=H*0.72;
 
-  // Rug
-  cx.fillStyle=P.rg;cx.fillRect(lx-30,ly-10,70,40);
-  cx.strokeStyle=P.rgd;cx.lineWidth=2;cx.strokeRect(lx-28,ly-8,66,36);
+  // Counter top
+  cx.fillStyle=P.woodLight;
+  cx.fillRect(0,y,W,6);
+  cx.fillStyle=P.counter;
+  cx.fillRect(0,y+6,W,4);
 
-  // Couch
-  cx.fillStyle=P.sfd;cx.fillRect(lx-20,ly-25,50,20);
-  cx.fillStyle=P.sf;cx.fillRect(lx-20,ly-30,50,8);cx.fillRect(lx-25,ly-25,8,25);cx.fillRect(lx+27,ly-25,8,25);
+  // Counter front
+  cx.fillStyle=P.wood;
+  cx.fillRect(0,y+10,W,H-y-10);
 
-  // Cushions
-  cx.fillStyle='#7c3aed';cx.fillRect(lx-12,ly-22,14,12);cx.fillRect(lx+10,ly-22,14,12);
+  // Noren curtains (hanging fabric)
+  const norenCount=Math.floor(W/50);
+  for(let i=0;i<norenCount;i++){
+    const nx=25+i*(W-50)/(norenCount-1);
+    const sway=Math.sin(Date.now()/1000+i)*1;
 
-  // Coffee table
-  cx.fillStyle=P.dkt;cx.fillRect(lx-5,ly+5,30,15);
-  cx.fillStyle=P.dk;cx.fillRect(lx-5,ly+3,30,4);
+    // Curtain panels
+    cx.fillStyle=P.noren;
+    cx.beginPath();
+    cx.moveTo(nx-12,y+12);
+    cx.lineTo(nx-10+sway,y+40);
+    cx.lineTo(nx+10+sway,y+40);
+    cx.lineTo(nx+12,y+12);
+    cx.fill();
 
-  // Coffee cup
-  cx.fillStyle='#fff';cx.fillRect(lx+2,ly+8,8,6);
-  cx.fillStyle='#8b7355';cx.fillRect(lx+3,ly+9,6,4);
+    // White pattern (simplified)
+    cx.fillStyle='rgba(255,255,255,0.3)';
+    cx.fillRect(nx-6+sway/2,y+20,12,3);
+  }
 
-  return {x:lx+10,y:ly};
+  return {x:W*0.5,y:y+5};
 }
 
-function plant(x,y,s=1){
-  cx.fillStyle=P.pt;cx.fillRect(x-6*s,y-10*s,12*s,10*s);
-  cx.fillStyle=P.ptd;cx.fillRect(x-7*s,y-12*s,14*s,3*s);
-  cx.fillStyle=P.pl;
-  cx.beginPath();cx.ellipse(x-5*s,y-18*s,4*s,6*s,-.3,0,Math.PI*2);cx.fill();
-  cx.beginPath();cx.ellipse(x+5*s,y-16*s,4*s,6*s,.3,0,Math.PI*2);cx.fill();
-  cx.beginPath();cx.ellipse(x,y-22*s,3*s,6*s,0,0,Math.PI*2);cx.fill();
-  cx.fillStyle=P.pld;cx.fillRect(x-1*s,y-16*s,2*s,6*s);
+// Serving bowl (for celebrate)
+function servingBowl(x,y,t){
+  // Bowl
+  cx.fillStyle=P.bowl;
+  cx.beginPath();
+  cx.ellipse(x,y,14,6,0,0,Math.PI);
+  cx.fill();
+
+  // Ramen/broth
+  cx.fillStyle=P.broth;
+  cx.beginPath();
+  cx.ellipse(x,y-1,12,4,0,0,Math.PI);
+  cx.fill();
+
+  // Noodles
+  cx.fillStyle=P.noodles;
+  for(let i=0;i<4;i++){
+    cx.fillRect(x-8+i*5,y-3,3,1);
+  }
+
+  // Egg
+  cx.fillStyle=P.egg;
+  cx.beginPath();cx.arc(x+5,y-2,3,0,Math.PI*2);cx.fill();
+
+  // Nori
+  cx.fillStyle=P.nori;
+  cx.fillRect(x-8,y-5,4,6);
+
+  // Steam
+  for(let i=0;i<3;i++){
+    const sy=y-8-Math.sin(t/150+i*2)*3-(t/30+i*10)%15;
+    const sx=x-4+i*4+Math.sin(t/200+i)*2;
+    cx.fillStyle='rgba(255,255,255,'+(0.4-(t/30+i*10)%15/30)+')';
+    cx.beginPath();cx.arc(sx,sy,2,0,Math.PI*2);cx.fill();
+  }
 }
 
-function worker(x,y,t){
+// Steam effect
+function steam(t,x,y,intensity=1){
+  for(let i=0;i<6;i++){
+    const age=(t/40+i*15)%50;
+    const sy=y-age;
+    const sx=x+Math.sin(t/180+i)*6;
+    const alpha=Math.max(0,(0.5-age/100)*intensity);
+    cx.fillStyle='rgba(255,255,255,'+alpha+')';
+    cx.beginPath();cx.arc(sx,sy,3+age/15,0,Math.PI*2);cx.fill();
+  }
+}
+
+// Ninja cook character
+function ninjaCook(x,y,t){
   const anim=Math.floor(t/200)%4;
   let bob=0,arm=0,walking=false;
 
@@ -398,96 +476,182 @@ function worker(x,y,t){
   if(dist>2){walking=true;bob=Math.sin(t/80)*2;}
 
   if(!walking){
-    if(mode==='typing'){arm=anim%2?-1:1;bob=anim%2?-1:0;}
-    else if(mode==='running'){bob=Math.sin(anim*Math.PI/2)*2;}
-    else if(mode==='celebrate'){bob=-anim;arm=-3-anim;}
-    else if(mode==='error'){bob=anim%2;}
+    if(mode==='typing'){arm=anim%2?-3:0;bob=anim%2?-1:0;}
+    else if(mode==='running'){arm=Math.sin(t/250)*3;}
     else if(mode==='thinking'){arm=-2;}
+    else if(mode==='celebrate'){bob=-anim;arm=-2;}
+    else if(mode==='error'){bob=anim%2*2;}
   }
 
   const by=y+bob;
 
   // Shadow
-  cx.fillStyle='rgba(0,0,0,0.1)';cx.beginPath();cx.ellipse(x,y+2,6,2,0,0,Math.PI*2);cx.fill();
+  cx.fillStyle='rgba(0,0,0,0.2)';
+  cx.beginPath();cx.ellipse(x,y+2,8,3,0,0,Math.PI*2);cx.fill();
 
   // Legs
-  cx.fillStyle=P.pn;
+  cx.fillStyle=P.outfit;
   if(walking){
     const legAnim=Math.sin(t/80)*3;
-    cx.fillRect(x-3,by-8+legAnim,2,6);cx.fillRect(x+1,by-8-legAnim,2,6);
+    cx.fillRect(x-3,by-8+legAnim,2,6);
+    cx.fillRect(x+1,by-8-legAnim,2,6);
   }else{
-    cx.fillRect(x-3,by-8,2,6);cx.fillRect(x+1,by-8,2,6);
+    cx.fillRect(x-3,by-8,2,6);
+    cx.fillRect(x+1,by-8,2,6);
   }
 
-  // Body
-  cx.fillStyle=charColor.sr;cx.fillRect(x-4,by-16,8,10);
+  // Body (outfit)
+  cx.fillStyle=P.outfit;
+  cx.fillRect(x-5,by-18,10,12);
+
+  // Apron
+  cx.fillStyle=P.apron;
+  cx.fillRect(x-4,by-15,8,10);
 
   // Arms
-  cx.fillRect(x-6,by-14+arm,2,6);cx.fillRect(x+4,by-14+(mode==='thinking'?0:arm),2,6);
+  cx.fillStyle=P.outfit;
+  cx.fillRect(x-7,by-16+arm,2,8);
+  cx.fillRect(x+5,by-16+(mode==='thinking'?0:arm),2,8);
 
   // Hands
-  cx.fillStyle=charColor.sk;cx.fillRect(x-6,by-8+arm,2,2);cx.fillRect(x+4,by-8+(mode==='thinking'?-4:arm),2,2);
+  cx.fillStyle=P.skin;
+  cx.fillRect(x-7,by-8+arm,2,3);
+  cx.fillRect(x+5,by-8+(mode==='thinking'?-4:arm),2,3);
 
   // Head
-  cx.fillRect(x-4,by-24,8,8);
+  cx.fillStyle=P.skin;
+  cx.fillRect(x-4,by-26,8,8);
 
   // Hair
-  cx.fillStyle=charColor.hr;cx.fillRect(x-5,by-26,10,4);cx.fillRect(x-5,by-24,2,2);cx.fillRect(x+3,by-24,2,2);
+  cx.fillStyle=P.hair;
+  cx.fillRect(x-5,by-28,10,4);
+
+  // Headband
+  cx.fillStyle=P.headband;
+  cx.fillRect(x-6,by-26,12,3);
+  // Headband tails
+  cx.fillRect(x+5,by-25,6,2);
+  cx.fillRect(x+9,by-24,4,2);
 
   // Eyes
   cx.fillStyle='#1a202c';
-  if(Math.floor(t/2500)%8!==0){cx.fillRect(x-2,by-22,1,2);cx.fillRect(x+1,by-22,1,2);}
+  if(Math.floor(t/2500)%8!==0){
+    cx.fillRect(x-2,by-23,1,2);
+    cx.fillRect(x+1,by-23,1,2);
+  }
 
-  // Effects based on mode
-  if(mode==='typing'&&!walking){
-    const df=Math.floor(t/150)%3;
-    for(let i=0;i<3;i++){cx.fillStyle=i===df?P.mg:'rgba(0,255,136,0.3)';cx.fillRect(x+10+i*3,by-20,2,2);}
-  }else if(mode==='thinking'&&!walking){
+  // Mode-specific effects
+  if(mode==='error'&&!walking){
+    // Sweat drop
+    cx.fillStyle='#90cdf4';
+    cx.beginPath();
+    cx.moveTo(x+7,by-24);
+    cx.lineTo(x+9,by-20);
+    cx.lineTo(x+5,by-20);
+    cx.fill();
+
+    // Dropped chopsticks
+    cx.fillStyle=P.wood;
+    cx.save();
+    cx.translate(x+12,by-5);
+    cx.rotate(Math.PI/4+Math.sin(t/50)*0.1);
+    cx.fillRect(0,0,2,14);
+    cx.fillRect(4,0,2,14);
+    cx.restore();
+  }
+
+  if(mode==='celebrate'&&!walking){
+    // Holding bowl
+    servingBowl(x,by-8,t);
+  }
+
+  if(mode==='thinking'&&!walking){
+    // Thought bubble
     cx.fillStyle='rgba(255,255,255,0.9)';
-    cx.beginPath();cx.arc(x+14,by-32,7,0,Math.PI*2);cx.fill();
-    cx.beginPath();cx.arc(x+8,by-26,3,0,Math.PI*2);cx.fill();
-    cx.fillStyle='#805ad5';cx.font='bold 7px monospace';cx.fillText(['?','..','!'][Math.floor(t/500)%3],x+11,by-30);
-  }else if(mode==='celebrate'&&!walking){
-    const cols=[P.bk4,P.pl,P.bk1,'#00d9ff'];
-    for(let i=0;i<6;i++){
-      const a=(i*Math.PI*2)/6+t/400,d=12+Math.sin(t/150+i)*4;
-      cx.fillStyle=cols[i%4];cx.fillRect(x+Math.cos(a)*d-1,by-16+Math.sin(a)*d-1,3,3);
-    }
-  }else if(mode==='error'&&!walking){
-    cx.fillStyle='#f56565';cx.fillRect(x-1,by-38,3,6);cx.fillRect(x-1,by-30,3,2);
+    cx.beginPath();cx.arc(x+16,by-34,8,0,Math.PI*2);cx.fill();
+    cx.beginPath();cx.arc(x+9,by-28,3,0,Math.PI*2);cx.fill();
+    cx.beginPath();cx.arc(x+6,by-25,2,0,Math.PI*2);cx.fill();
+
+    // Thinking content
+    cx.fillStyle=P.scrollAccent;
+    cx.font='bold 8px monospace';
+    cx.fillText(['?','🍜','!'][Math.floor(t/500)%3],x+12,by-32);
   }
 }
 
+// Decorations (bamboo, sake bottles)
+function decorations(){
+  // Bamboo on left
+  cx.fillStyle='#2d5016';
+  cx.fillRect(W*0.03,H*0.3,4,H*0.4);
+  cx.fillRect(W*0.05,H*0.25,3,H*0.45);
+
+  // Bamboo leaves
+  cx.fillStyle='#48bb78';
+  cx.beginPath();cx.ellipse(W*0.05,H*0.28,8,3,-0.5,0,Math.PI*2);cx.fill();
+  cx.beginPath();cx.ellipse(W*0.03,H*0.32,6,2,0.3,0,Math.PI*2);cx.fill();
+
+  // Sake bottles on right
+  cx.fillStyle='#f5f0e1';
+  cx.fillRect(W*0.92,H*0.5,8,20);
+  cx.fillRect(W*0.94,H*0.48,6,22);
+  cx.fillStyle=P.scrollAccent;
+  cx.fillRect(W*0.92,H*0.52,8,3);
+  cx.fillRect(W*0.94,H*0.53,6,3);
+}
+
+// Stall sign
+function stallSign(){
+  const sw=CO.length*10+24,sx=W*0.5-sw/2,sy=H*0.06;
+
+  // Sign board
+  cx.fillStyle=P.wood;
+  cx.fillRect(sx-4,sy-4,sw+8,32);
+  cx.fillStyle=P.scroll;
+  cx.fillRect(sx,sy,sw,24);
+
+  // Text
+  cx.fillStyle=P.scrollAccent;
+  cx.font='bold 12px monospace';
+  cx.fillText(CO,sx+12,sy+16);
+
+  // Decorative corners
+  cx.fillStyle=P.scrollAccent;
+  cx.fillRect(sx,sy,4,4);
+  cx.fillRect(sx+sw-4,sy,4,4);
+  cx.fillRect(sx,sy+20,4,4);
+  cx.fillRect(sx+sw-4,sy+20,4,4);
+}
+
 function render(t){
-  floor();
-  walls();
-  windows(t);
-  sign();
+  nightSky(t);
+  lanterns(t);
+  stallSign();
+  decorations();
 
   // Draw all areas
-  const deskPos=desk(t);
-  const meetPos=meetingRoom(t);
-  const termPos=terminal(t);
-  const loungePos=lounge();
+  const scrollPos=menuScroll(t);
+  const prepPos=prepBoard(t);
+  const potPos=potAndFlame(t);
+  const counterPos=counter();
 
-  // Plants
-  plant(W*0.05,H*0.9,0.8);
-  plant(W*0.45,H*0.22,0.6);
-  plant(W*0.92,H*0.9,0.9);
+  // Steam from pot (always, more intense when cooking)
+  steam(t,W*0.75,H*0.35,mode==='running'?1.5:0.5);
 
   // Determine target position based on mode
-  if(mode==='typing'){tx=deskPos.x;ty=deskPos.y;}
-  else if(mode==='thinking'){tx=meetPos.x;ty=meetPos.y;}
-  else if(mode==='running'){tx=termPos.x;ty=termPos.y;}
-  else if(mode==='celebrate'||mode==='idle'){tx=loungePos.x;ty=loungePos.y;}
-  else if(mode==='error'){tx=deskPos.x;ty=deskPos.y;}
+  if(mode==='typing'){tx=prepPos.x;ty=prepPos.y;}
+  else if(mode==='thinking'){tx=scrollPos.x;ty=scrollPos.y;}
+  else if(mode==='running'){tx=potPos.x;ty=potPos.y;}
+  else if(mode==='celebrate'){tx=counterPos.x;ty=counterPos.y-10;}
+  else if(mode==='error'){tx=prepPos.x;ty=prepPos.y;}
+  else{tx=W*0.45;ty=H*0.62;}
 
   // Move character
   const dx=tx-mx,dy=ty-my,dist=Math.sqrt(dx*dx+dy*dy);
-  if(dist>1){mx+=dx/dist*2;my+=dy/dist*2;}
+  if(dist>1){mx+=dx/dist*2.5;my+=dy/dist*2.5;}
 
   // Draw character
-  worker(mx,my,t);
+  ninjaCook(mx,my,t);
 
   requestAnimationFrame(render);
 }
@@ -511,26 +675,28 @@ function getPairPageHTML(ip: string, wsPort: number, token: string, isValid: boo
   <title>${companyName} - Pair</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:-apple-system,system-ui,sans-serif;background:linear-gradient(135deg,#c9b8db,#e8dff0);color:#333;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-    .c{text-align:center;max-width:400px;background:#fff;padding:40px;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,0.1)}
-    h1{font-size:2rem;margin-bottom:.5rem;color:#5a67d8}
-    .sub{color:#666;margin-bottom:2rem}
+    body{font-family:-apple-system,system-ui,sans-serif;background:linear-gradient(135deg,#0d1b2a,#1b263b);color:#f5f0e1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .c{text-align:center;max-width:400px;background:linear-gradient(180deg,#2d3748,#1a202c);padding:40px;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,0.3);border:2px solid #5d4037}
+    h1{font-size:2rem;margin-bottom:.5rem;color:#ff6b35}
+    .sub{color:#ffd166;margin-bottom:2rem}
     .status{padding:1rem;border-radius:12px;margin-bottom:1.5rem}
-    .status.ok{background:rgba(72,187,120,0.15);border:1px solid rgba(72,187,120,0.3)}
-    .status.err{background:rgba(245,101,101,0.15);border:1px solid rgba(245,101,101,0.3)}
-    .ip{font-family:monospace;font-size:1.1rem;color:#48bb78}
-    .btn{display:inline-block;background:linear-gradient(135deg,#667eea,#5a67d8);color:#fff;padding:1rem 2rem;border-radius:30px;text-decoration:none;font-weight:600;transition:transform .2s,box-shadow .2s}
-    .btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(102,126,234,0.3)}
-    .note{margin-top:2rem;color:#888;font-size:.9rem}
+    .status.ok{background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.4)}
+    .status.err{background:rgba(193,18,31,0.15);border:1px solid rgba(193,18,31,0.4)}
+    .ip{font-family:monospace;font-size:1.1rem;color:#ffd166}
+    .btn{display:inline-block;background:linear-gradient(135deg,#c1121f,#8b0000);color:#fff;padding:1rem 2rem;border-radius:30px;text-decoration:none;font-weight:600;transition:transform .2s,box-shadow .2s;border:2px solid #ffd166}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(193,18,31,0.4)}
+    .note{margin-top:2rem;color:#a0aec0;font-size:.9rem}
+    .emoji{font-size:2.5rem;margin-bottom:1rem}
   </style>
 </head>
 <body>
   <div class="c">
+    <div class="emoji">🍜</div>
     <h1>${companyName}</h1>
-    <p class="sub">Pixel art vibes for your AI</p>
+    <p class="sub">Cozy ramen stall vibes for your AI</p>
     ${isValid ? `
     <div class="status ok"><p>Connected to</p><p class="ip">${ip}</p></div>
-    <a href="/" class="btn">Open ${companyName}</a>
+    <a href="/" class="btn">Enter the Stall 🏮</a>
     <p class="note">Tip: Add to Home Screen for fullscreen</p>
     ` : `
     <div class="status err"><p>Invalid or missing token</p><p style="font-size:.9rem;margin-top:.5rem">Scan the QR code again</p></div>

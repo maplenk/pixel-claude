@@ -24,7 +24,7 @@ interface Config {
 
 function loadConfig(): Config {
   const defaults: Config = {
-    companyName: 'PIXELHQ',
+    companyName: 'NINJA NOODLES',
   };
 
   try {
