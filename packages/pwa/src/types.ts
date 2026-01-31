@@ -20,6 +20,6 @@ export interface ArtConfig {
 
 export const ART_CONFIG: ArtConfig = {
   tileSize: 16,
-  internalWidth: 320,
-  internalHeight: 180,
+  internalWidth: 180,   // Portrait mode
+  internalHeight: 320,
 };

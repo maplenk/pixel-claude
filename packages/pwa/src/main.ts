@@ -12,10 +12,63 @@ const connectionStatus = document.getElementById('connection-status')!;
 let wsClient: WSClient | null = null;
 let currentMode: Mode = 'idle';
 
+// Dev mode: add ?dev to URL to see scene without connection
+const isDev = window.location.search.includes('dev');
+
+// Live mode: add ?live to connect to local CLI server
+const isLive = window.location.search.includes('live');
+
 // Initialize
 async function init() {
   // Setup canvas
   const { ctx } = setupCanvas('game');
+
+  // Dev mode: hide prompt and cycle through modes for testing
+  if (isDev) {
+    pairPrompt.classList.add('hidden');
+    const modes: Mode[] = ['idle', 'typing', 'thinking', 'running', 'celebrate', 'error'];
+    let modeIndex = 0;
+
+    // Click to cycle modes
+    document.addEventListener('click', () => {
+      modeIndex = (modeIndex + 1) % modes.length;
+      currentMode = modes[modeIndex];
+      console.log('Mode:', currentMode);
+    });
+
+    // Keyboard shortcuts for modes
+    document.addEventListener('keydown', (e) => {
+      const keyMap: Record<string, Mode> = {
+        '1': 'idle', '2': 'typing', '3': 'thinking',
+        '4': 'running', '5': 'celebrate', '6': 'error'
+      };
+      if (keyMap[e.key]) {
+        currentMode = keyMap[e.key];
+        console.log('Mode:', currentMode);
+      }
+    });
+  }
+
+  // Live mode: connect directly to local CLI WebSocket
+  if (isLive) {
+    pairPrompt.classList.add('hidden');
+
+    // Read token from CLI config or use default
+    const token = new URLSearchParams(window.location.search).get('token') || '000000';
+    const wsEndpoint = `ws://127.0.0.1:8765/ws?token=${token}`;
+
+    const connectionInfo = {
+      wsEndpoint,
+      token,
+      ip: '127.0.0.1'
+    };
+
+    store.setConnectionInfo(connectionInfo);
+    wsClient = new WSClient(connectionInfo);
+    wsClient.connect();
+
+    console.log('Live mode: connecting to', wsEndpoint);
+  }
 
   // Check for connection info
   const connectionInfo = loadConnectionInfo();

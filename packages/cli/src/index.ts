@@ -74,13 +74,21 @@ const program = new Command();
 program
   .name('pixelhq')
   .description('PixelHQ - Pixel art office visualization for Claude Code')
-  .version('0.1.0');
+  .version('0.1.0')
+  .option('-n, --name <name>', 'Company name to display', '')
+  .action(async (options) => {
+    runServer(options);
+  });
 
 program
-  .command('start', { isDefault: true })
+  .command('start')
   .description('Start the PixelHQ server')
   .option('-n, --name <name>', 'Company name to display', '')
   .action(async (options) => {
+    runServer(options);
+  });
+
+async function runServer(options: { name?: string }) {
     const config = loadConfig();
 
     // Update company name if provided
@@ -108,6 +116,7 @@ program
     printQRCode(pairUrl);
 
     console.log(chalk.gray(`  Company: ${config.companyName}`));
+    console.log(chalk.gray(`  Theme:   office`));
     console.log(chalk.gray(`  HTTP: http://${localIP}:${HTTP_PORT}`));
     console.log(chalk.gray(`  WS:   ws://${localIP}:${WS_PORT}`));
     console.log();
@@ -118,7 +127,7 @@ program
       stateMachine.destroy();
       process.exit(0);
     });
-  });
+}
 
 program
   .command('config')
