@@ -2,7 +2,7 @@ import type { Mode, Activity, ToolCategory } from '../types';
 import type { AppState, AgentInfo } from '../store/state';
 import { ART_CONFIG, TOOL_EFFECT_MAP } from '../types';
 import { clearCanvas } from '../engine/canvas';
-import { getSprite, hasSprites, getModeFrame, getLimeZuFrame, hasLimeZuSprites, hasModernOfficeSprites, getPremadeCharacter, getPremadeCharFrame } from '../engine/spriteManager';
+import { getSprite, getModeFrame, getLimeZuFrame, getPremadeCharacter, getPremadeCharFrame } from '../engine/spriteManager';
 import { drawSpriteFrame } from '../engine/sprites';
 import { drawToolEffects, startToolEffect, stopToolEffect } from '../engine/effects';
 
@@ -88,6 +88,11 @@ const P = {
   uiAccent: '#00ff88',
   uiWarning: '#ffaa00',
   uiError: '#ff4a4a',
+  uiPanel: '#141b2b',
+  uiPanelLight: '#24304a',
+  uiPanelDark: '#0b0f19',
+  uiPanelInset: '#0f1422',
+  uiTextDim: '#9aa3b2',
 
   // Effects
   shadow: 'rgba(0,0,0,0.4)',
@@ -105,10 +110,42 @@ const P = {
 // =============================================================================
 // LAYOUT POSITIONS
 // =============================================================================
-const HEADER_HEIGHT = 20;
-const FOOTER_HEIGHT = 60;
+const HEADER_HEIGHT = 0;
+const FOOTER_HEIGHT = 0;
 const SCENE_TOP = HEADER_HEIGHT;
 const SCENE_HEIGHT = IH - HEADER_HEIGHT - FOOTER_HEIGHT;
+
+// Pixel grid layout
+const TILE = ART_CONFIG.tileSize;
+const ROOM_COLS = Math.floor(IW / TILE);
+const ROOM_ROWS = Math.floor(SCENE_HEIGHT / TILE);
+const ROOM_W = ROOM_COLS * TILE;
+const ROOM_H = ROOM_ROWS * TILE;
+const ROOM_X = Math.floor((IW - ROOM_W) / 2);
+const ROOM_Y = SCENE_TOP;
+const WALL_ROWS = Math.min(8, ROOM_ROWS - 4);
+const FLOOR_ROW = WALL_ROWS;
+const FLOOR_Y = ROOM_Y + FLOOR_ROW * TILE;
+const FLOOR_H = ROOM_H - FLOOR_ROW * TILE;
+
+const DESK_X = ROOM_X + Math.floor(ROOM_W / 2);
+const BACK_DESK_Y = FLOOR_Y + TILE;
+const MID_DESK_Y = FLOOR_Y + TILE * 3;
+const DESK_Y = FLOOR_Y + TILE * 6;
+
+const WHITEBOARD_POS = { x: ROOM_X + TILE, y: ROOM_Y + TILE };
+const CORKBOARD_POS = { x: ROOM_X + TILE * 4, y: ROOM_Y + TILE };
+const WINDOW_POS = { x: ROOM_X + TILE * 5, y: ROOM_Y + TILE * 2 };
+const WINDOW_COLS = 2;
+const WINDOW_ROWS = 2;
+
+const SERVER_POS = { x: ROOM_X + ROOM_W - TILE * 2, y: ROOM_Y + TILE * 4 };
+const COOLER_POS = { x: ROOM_X + TILE, y: FLOOR_Y - TILE };
+const LAMP_POS = { x: DESK_X + TILE * 2, y: DESK_Y - TILE * 3 };
+
+const MID_LEFT_X = ROOM_X + TILE * 3;
+const MID_RIGHT_X = ROOM_X + ROOM_W - TILE * 3;
+const COUCH_POS = { x: ROOM_X + ROOM_W - TILE * 3, y: FLOOR_Y + TILE * 5 };
 
 // =============================================================================
 // ANIMATION TIMING
@@ -126,17 +163,17 @@ const ANIM = {
 // =============================================================================
 // CHARACTER STATE
 // =============================================================================
-let charX = IW * 0.5;
-let charY = SCENE_TOP + SCENE_HEIGHT * 0.65;
+let charX = DESK_X;
+let charY = DESK_Y + 12;
 const MOVE_SPEED = 1.5;
 
 // Target positions based on activity
 const POSITIONS = {
-  idle: { x: IW * 0.5, y: SCENE_TOP + SCENE_HEIGHT * 0.65 },
-  typing: { x: IW * 0.5, y: SCENE_TOP + SCENE_HEIGHT * 0.65 },
-  thinking: { x: IW * 0.25, y: SCENE_TOP + SCENE_HEIGHT * 0.45 },
-  running: { x: IW * 0.82, y: SCENE_TOP + SCENE_HEIGHT * 0.45 },
-  waiting: { x: IW * 0.2, y: SCENE_TOP + SCENE_HEIGHT * 0.75 },
+  idle: { x: DESK_X, y: DESK_Y + 12 },
+  typing: { x: DESK_X, y: DESK_Y + 12 },
+  thinking: { x: WHITEBOARD_POS.x + TILE * 2, y: WHITEBOARD_POS.y + TILE * 5 },
+  running: { x: SERVER_POS.x - TILE * 2, y: SERVER_POS.y + TILE * 4 },
+  waiting: { x: ROOM_X + TILE * 2, y: FLOOR_Y + TILE * 4 },
 };
 
 // =============================================================================
@@ -155,24 +192,40 @@ export function drawWorkspace(
   clearCanvas(ctx, P.bgDark);
 
   // 2. Draw scene layers
-  drawFloor(ctx);
-  drawWalls(ctx);
+  const hasDesignBg = drawOfficeDesignBackground(ctx);
 
-  // 3. Back wall items
-  drawWhiteboard(ctx, time, state);
-  drawCorkboard(ctx, time);
-  drawServerRack(ctx, time, state);
+  if (!hasDesignBg) {
+    drawFloor(ctx);
+    drawWalls(ctx);
 
-  // 4. Room items
-  drawWaterCooler(ctx, time);
-  drawDesk(ctx, time, state);
-  drawLamp(ctx, time);
-  drawPlants(ctx);
+    // 3. Back wall items
+    drawWhiteboard(ctx, time, state);
+    drawCorkboard(ctx, time);
+    drawServerRack(ctx, time, state);
+
+    // 4. Room items
+    drawRugs(ctx);
+    drawStorage(ctx);
+    drawWaterCooler(ctx, time);
+    drawBackDesks(ctx);
+    drawLounge(ctx);
+    drawPlants(ctx);
+  } else {
+    drawDeskRug(ctx);
+  }
+
+  // Only draw extra desk/lamp if not already in the design background
+  if (!hasDesignBg) {
+    drawDesk(ctx, time, state);
+    drawLamp(ctx, time);
+  }
 
   // 5. Character(s)
   const target = getTargetPosition(state.activity);
   updateCharacterPosition(target);
-  drawCharacter(ctx, time, state, charX, charY, true);
+  if (!hasDesignBg) {
+    drawCharacter(ctx, time, state, charX, charY, true);
+  }
 
   // 6. Handle tool effects
   handleToolEffects(state);
@@ -190,8 +243,7 @@ export function drawWorkspace(
   }
 
   // 10. UI overlay
-  drawHeader(ctx, state, time);
-  drawFooter(ctx, state, time);
+  drawOverlayUI(ctx, state, time);
 }
 
 /**
@@ -221,109 +273,232 @@ function handleToolEffects(state: AppState): void {
 // =============================================================================
 // BACKGROUND
 // =============================================================================
+function drawOfficeDesignBackground(ctx: CanvasRenderingContext2D): boolean {
+  const designSheet = getSprite('limezu-office-design-2') || getSprite('limezu-office-design-1');
+  if (!designSheet) return false;
+
+  const frameName = designSheet.frames.has('office_design_2') ? 'office_design_2' : 'office_design_1';
+  if (!designSheet.frames.has(frameName)) return false;
+
+  const frame = designSheet.frames.get(frameName)!;
+
+  // Pixel-perfect crop to 360x320 then scale 0.5 => 180x160 (stacked twice to fill 320 height)
+  const cropX = 28;
+  const cropW = 360;
+  const cropH = 320;
+  const drawW = IW;
+  const drawH = Math.floor(cropH * 0.5); // 160
+
+  ctx.imageSmoothingEnabled = false;
+
+  // Top slice
+  ctx.drawImage(
+    designSheet.image,
+    frame.x + cropX,
+    frame.y + 0,
+    cropW,
+    cropH,
+    0,
+    SCENE_TOP,
+    drawW,
+    drawH
+  );
+
+  // Bottom slice (shifted down in source for different content)
+  ctx.drawImage(
+    designSheet.image,
+    frame.x + cropX,
+    frame.y + 64,
+    cropW,
+    cropH,
+    0,
+    SCENE_TOP + drawH,
+    drawW,
+    drawH
+  );
+
+  return true;
+}
+
 function drawFloor(ctx: CanvasRenderingContext2D): void {
-  const floorY = SCENE_TOP + SCENE_HEIGHT * 0.55;
-  const floorHeight = IH - FOOTER_HEIGHT - floorY;
+  const officeRoom = getSprite('limezu-office-room');
 
-  // Use procedural floor (cleaner look)
-  const grad = ctx.createLinearGradient(0, floorY, 0, IH - FOOTER_HEIGHT);
-  grad.addColorStop(0, P.floorDark);
-  grad.addColorStop(1, P.floorMid);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, floorY, IW, floorHeight);
+  if (officeRoom && officeRoom.frames.has('floor_office_carpet')) {
+    const tileA = officeRoom.frames.has('floor_office_carpet') ? 'floor_office_carpet' : 'floor_office_tile';
+    const tileB = officeRoom.frames.has('floor_office_tile') ? 'floor_office_tile' : tileA;
 
-  // Floor grid for depth
-  ctx.strokeStyle = P.floorGrid;
-  ctx.lineWidth = 1;
-  for (let x = 0; x < IW; x += 20) {
-    ctx.beginPath();
-    ctx.moveTo(x, floorY);
-    ctx.lineTo(x, IH - FOOTER_HEIGHT);
-    ctx.stroke();
-  }
-  for (let y = floorY; y < IH - FOOTER_HEIGHT; y += 15) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(IW, y);
-    ctx.stroke();
+    for (let row = 0; row < ROOM_ROWS - FLOOR_ROW; row++) {
+      for (let col = 0; col < ROOM_COLS; col++) {
+        const frame = (row + col) % 2 === 0 ? tileA : tileB;
+        drawSpriteFrame(ctx, officeRoom, frame, ROOM_X + col * TILE, FLOOR_Y + row * TILE);
+      }
+    }
+  } else {
+    // Fallback: flat floor with subtle checker for depth
+    ctx.fillStyle = P.floorDark;
+    ctx.fillRect(0, FLOOR_Y, IW, FLOOR_H);
+    ctx.fillStyle = P.floorMid;
+    for (let row = 0; row < FLOOR_H; row += 4) {
+      ctx.fillRect(0, FLOOR_Y + row, IW, 1);
+    }
   }
 }
 
 function drawWalls(ctx: CanvasRenderingContext2D): void {
-  const wallBottom = SCENE_TOP + SCENE_HEIGHT * 0.55;
-  const wallHeight = wallBottom - SCENE_TOP;
+  const officeRoom = getSprite('limezu-office-room');
 
-  // Use procedural walls (cleaner look, Room Builder tiles need better mapping)
-  const grad = ctx.createLinearGradient(0, SCENE_TOP, 0, wallBottom);
-  grad.addColorStop(0, P.wallDark);
-  grad.addColorStop(1, P.wallMid);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, SCENE_TOP, IW, wallHeight);
+  if (officeRoom && officeRoom.frames.has('wall_office_grey_top')) {
+    // Top trim
+    for (let col = 0; col < ROOM_COLS; col++) {
+      const frame = officeRoom.frames.has('wall_office_blue_top') ? 'wall_office_blue_top' : 'wall_office_grey_top';
+      drawSpriteFrame(ctx, officeRoom, frame, ROOM_X + col * TILE, ROOM_Y);
+    }
 
-  // Baseboard
-  ctx.fillStyle = P.woodDark;
-  ctx.fillRect(0, wallBottom - 4, IW, 4);
-  ctx.fillStyle = P.woodLight;
-  ctx.fillRect(0, wallBottom - 4, IW, 1);
+    // Second trim row
+    for (let col = 0; col < ROOM_COLS; col++) {
+      const frame = officeRoom.frames.has('wall_office_blue_bottom') ? 'wall_office_blue_bottom' : 'wall_office_grey_bottom';
+      drawSpriteFrame(ctx, officeRoom, frame, ROOM_X + col * TILE, ROOM_Y + TILE);
+    }
+
+    // Fill remaining wall area with solid tone to avoid stripe tiling
+    const fillY = ROOM_Y + TILE * 2;
+    const fillH = WALL_ROWS * TILE - TILE * 2;
+    if (fillH > 0) {
+      ctx.fillStyle = P.wallMid;
+      ctx.fillRect(ROOM_X, fillY, ROOM_W, fillH);
+    }
+
+    // Window detail (if available)
+    const interiorSheet = getSprite('limezu-interiors');
+    if (interiorSheet && interiorSheet.frames.has('window_large')) {
+      for (let row = 0; row < WINDOW_ROWS; row++) {
+        for (let col = 0; col < WINDOW_COLS; col++) {
+          drawSpriteFrame(
+            ctx,
+            interiorSheet,
+            'window_large',
+            WINDOW_POS.x + col * 32,
+            WINDOW_POS.y + row * 32
+          );
+        }
+      }
+    }
+
+    // Baseboard
+    ctx.fillStyle = P.woodDark;
+    ctx.fillRect(ROOM_X, FLOOR_Y - 2, ROOM_W, 2);
+  } else {
+    // Fallback: soft wall gradient
+    const wallBottom = FLOOR_Y;
+    const wallHeight = wallBottom - SCENE_TOP;
+    const grad = ctx.createLinearGradient(0, SCENE_TOP, 0, wallBottom);
+    grad.addColorStop(0, P.wallDark);
+    grad.addColorStop(1, P.wallMid);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, SCENE_TOP, IW, wallHeight);
+
+    // Baseboard
+    ctx.fillStyle = P.woodDark;
+    ctx.fillRect(0, wallBottom - 4, IW, 4);
+    ctx.fillStyle = P.woodLight;
+    ctx.fillRect(0, wallBottom - 4, IW, 1);
+  }
+
+  // Ceiling light (adds crisp detail when sprites available)
+  const officeSheet = getSprite('limezu-office');
+  if (officeSheet && officeSheet.frames.has('ceiling_light')) {
+    const lx = ROOM_X + Math.floor((ROOM_W - 32) / 2);
+    drawSpriteFrame(ctx, officeSheet, 'ceiling_light', lx, ROOM_Y + 2);
+  }
+}
+
+// =============================================================================
+// FLOOR DECOR
+// =============================================================================
+function drawRugs(ctx: CanvasRenderingContext2D): void {
+  const interiorSheet = getSprite('limezu-interiors');
+  if (!interiorSheet) return;
+
+  if (interiorSheet.frames.has('rug_blue')) {
+    drawSpriteFrame(ctx, interiorSheet, 'rug_blue', DESK_X - 24, DESK_Y + 8);
+  }
+  if (interiorSheet.frames.has('rug_brown')) {
+    drawSpriteFrame(ctx, interiorSheet, 'rug_brown', MID_LEFT_X - 16, MID_DESK_Y + 8);
+    drawSpriteFrame(ctx, interiorSheet, 'rug_brown', MID_RIGHT_X - 16, MID_DESK_Y + 8);
+  }
+}
+
+function drawDeskRug(ctx: CanvasRenderingContext2D): void {
+  const interiorSheet = getSprite('limezu-interiors');
+  if (!interiorSheet || !interiorSheet.frames.has('rug_blue')) return;
+  drawSpriteFrame(ctx, interiorSheet, 'rug_blue', DESK_X - 24, DESK_Y + 8);
+}
+
+function drawStorage(ctx: CanvasRenderingContext2D): void {
+  const officeSheet = getSprite('limezu-office');
+  if (!officeSheet) return;
+
+  if (officeSheet.frames.has('bookshelf_2x3')) {
+    drawSpriteFrame(ctx, officeSheet, 'bookshelf_2x3', ROOM_X + TILE * 2, FLOOR_Y - TILE * 2);
+  }
+  if (officeSheet.frames.has('filing_cabinet_3')) {
+    drawSpriteFrame(ctx, officeSheet, 'filing_cabinet_3', ROOM_X + ROOM_W - TILE * 4, FLOOR_Y - TILE * 2);
+  }
 }
 
 // =============================================================================
 // WHITEBOARD (Thinking station)
 // =============================================================================
 function drawWhiteboard(ctx: CanvasRenderingContext2D, t: number, state: AppState): void {
-  const x = 15;
-  const y = SCENE_TOP + 15;
-  const w = 55;
-  const h = 40;
+  const x = WHITEBOARD_POS.x;
+  const y = WHITEBOARD_POS.y;
+  const w = 48;
+  const h = 32;
 
-  // Shadow
+  const officeSheet = getSprite('limezu-office');
+
+  if (officeSheet && officeSheet.frames.has('whiteboard_3x2')) {
+    drawSpriteFrame(ctx, officeSheet, 'whiteboard_3x2', x, y);
+
+    // Thinking indicator (crisp overlay)
+    if (state.activity === 'thinking') {
+      const alpha = 0.4 + Math.sin(t / ANIM.thinking) * 0.3;
+      ctx.fillStyle = `rgba(74,158,255,${alpha})`;
+      ctx.fillRect(x + 32, y + 18, 10, 10);
+      ctx.fillStyle = '#fff';
+      ctx.font = '6px monospace';
+      ctx.fillText('?', x + 35, y + 26);
+    }
+    return;
+  }
+
+  // Fallback: procedural board
   ctx.fillStyle = P.shadowLight;
   ctx.fillRect(x + 2, y + 2, w, h);
-
-  // Frame
   ctx.fillStyle = P.whiteboardFrame;
   ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
-
-  // Surface
   ctx.fillStyle = P.whiteboardSurface;
   ctx.fillRect(x, y, w, h);
 
-  // Flowchart diagram
   ctx.strokeStyle = P.diagramBlue;
   ctx.lineWidth = 1;
-
-  // Boxes
-  ctx.strokeRect(x + 8, y + 8, 12, 8);
-  ctx.strokeRect(x + 28, y + 8, 12, 8);
-  ctx.strokeRect(x + 18, y + 22, 12, 8);
-
-  // Lines
+  ctx.strokeRect(x + 8, y + 6, 12, 8);
+  ctx.strokeRect(x + 26, y + 6, 12, 8);
+  ctx.strokeRect(x + 17, y + 18, 12, 8);
   ctx.beginPath();
-  ctx.moveTo(x + 20, y + 16);
-  ctx.lineTo(x + 24, y + 22);
-  ctx.moveTo(x + 34, y + 16);
-  ctx.lineTo(x + 30, y + 22);
+  ctx.moveTo(x + 18, y + 14);
+  ctx.lineTo(x + 22, y + 18);
+  ctx.moveTo(x + 30, y + 14);
+  ctx.lineTo(x + 26, y + 18);
   ctx.stroke();
 
-  // Thinking indicator
   if (state.activity === 'thinking') {
-    const alpha = 0.5 + Math.sin(t / ANIM.thinking) * 0.3;
+    const alpha = 0.4 + Math.sin(t / ANIM.thinking) * 0.3;
     ctx.fillStyle = `rgba(74,158,255,${alpha})`;
-    ctx.fillRect(x + 42, y + 28, 8, 8);
+    ctx.fillRect(x + 34, y + 18, 8, 8);
     ctx.fillStyle = '#fff';
     ctx.font = '6px monospace';
-    ctx.fillText('?', x + 44, y + 35);
-  }
-
-  // Marker tray
-  ctx.fillStyle = P.whiteboardFrame;
-  ctx.fillRect(x, y + h, w, 3);
-
-  // Markers
-  const markers = [P.diagramBlue, P.diagramGreen, P.diagramPurple, P.uiError];
-  for (let i = 0; i < markers.length; i++) {
-    ctx.fillStyle = markers[i];
-    ctx.fillRect(x + 5 + i * 10, y + h + 1, 6, 2);
+    ctx.fillText('?', x + 36, y + 25);
   }
 }
 
@@ -331,81 +506,59 @@ function drawWhiteboard(ctx: CanvasRenderingContext2D, t: number, state: AppStat
 // CORKBOARD
 // =============================================================================
 function drawCorkboard(ctx: CanvasRenderingContext2D, t: number): void {
-  const x = IW - 60;
-  const y = SCENE_TOP + 8;
-  const w = 50;
-  const h = 35;
+  const x = CORKBOARD_POS.x;
+  const y = CORKBOARD_POS.y;
+  const w = 32;
+  const h = 32;
 
-  // Shadow
-  ctx.fillStyle = P.shadowLight;
-  ctx.fillRect(x + 2, y + 2, w, h);
+  const officeSheet = getSprite('limezu-office');
 
-  // Frame
-  ctx.fillStyle = P.woodMid;
-  ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
-
-  // Cork surface
-  ctx.fillStyle = P.corkMid;
-  ctx.fillRect(x, y, w, h);
-
-  // Cork texture
-  ctx.fillStyle = P.corkDark;
-  for (let i = 0; i < 10; i++) {
-    const cx = x + (i * 17) % w;
-    const cy = y + (i * 11) % h;
-    ctx.fillRect(cx, cy, 1, 1);
+  if (officeSheet && officeSheet.frames.has('corkboard_2x2')) {
+    drawSpriteFrame(ctx, officeSheet, 'corkboard_2x2', x, y);
+  } else {
+    ctx.fillStyle = P.shadowLight;
+    ctx.fillRect(x + 2, y + 2, w, h);
+    ctx.fillStyle = P.woodMid;
+    ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+    ctx.fillStyle = P.corkMid;
+    ctx.fillRect(x, y, w, h);
   }
 
   // Sticky notes with slight sway
   const sway = Math.sin(t / 800) * 0.5;
-
   const notes = [
-    { nx: 5, ny: 5, c: P.stickyYellow, text: 'TODO' },
-    { nx: 22, ny: 8, c: P.stickyPink, text: '' },
-    { nx: 35, ny: 4, c: P.stickyBlue, text: '' },
-    { nx: 12, ny: 20, c: P.stickyGreen, text: 'SHIP' },
+    { nx: 6, ny: 4, c: P.stickyYellow, text: '' },
+    { nx: 18, ny: 6, c: P.stickyPink, text: '' },
+    { nx: 8, ny: 18, c: P.stickyGreen, text: '' },
   ];
 
   for (const note of notes) {
     ctx.save();
-    ctx.translate(x + note.nx + 5, y + note.ny);
+    ctx.translate(x + note.nx, y + note.ny);
     ctx.rotate(sway * 0.02);
     ctx.fillStyle = note.c;
-    ctx.fillRect(-5, 0, 12, 10);
-    if (note.text) {
-      ctx.fillStyle = '#333';
-      ctx.font = '4px monospace';
-      ctx.fillText(note.text, -3, 6);
-    }
+    ctx.fillRect(0, 0, 8, 6);
     ctx.restore();
   }
-
-  // "Ship It!" poster
-  ctx.fillStyle = P.uiAccent;
-  ctx.fillRect(x + 5, y + h - 12, 18, 10);
-  ctx.fillStyle = '#000';
-  ctx.font = 'bold 4px monospace';
-  ctx.fillText('SHIP', x + 7, y + h - 6);
-  ctx.fillText('IT!', x + 9, y + h - 2);
 }
 
 // =============================================================================
 // SERVER RACK (Running station)
 // =============================================================================
 function drawServerRack(ctx: CanvasRenderingContext2D, t: number, state: AppState): void {
-  const x = IW - 28;
-  const y = SCENE_TOP + 50;
-  const w = 22;
-  const h = 55;
+  const x = SERVER_POS.x;
+  const y = SERVER_POS.y;
+  const w = 28;
+  const h = 56;
 
   const officeSheet = getSprite('limezu-office');
 
   if (officeSheet && officeSheet.frames.has('server_rack_3x4')) {
     // Use Modern Office server rack sprite
-    drawSpriteFrame(ctx, officeSheet, 'server_rack_3x4', x - 5, y - 5);
+    drawSpriteFrame(ctx, officeSheet, 'server_rack_3x4', x, y);
 
     // Draw animated LEDs on top of sprite
-    drawServerLEDs(ctx, x, y, w, h, t, state);
+    drawServerLEDs(ctx, x + 2, y + 4, w, h, t, state);
   } else {
     // Procedural server rack (fallback)
     // Shadow
@@ -477,20 +630,20 @@ function drawServerLEDs(ctx: CanvasRenderingContext2D, x: number, y: number, w: 
 // WATER COOLER
 // =============================================================================
 function drawWaterCooler(ctx: CanvasRenderingContext2D, t: number): void {
-  const x = 10;
-  const y = SCENE_TOP + SCENE_HEIGHT * 0.45;
+  const x = COOLER_POS.x;
+  const y = COOLER_POS.y;
 
   const officeSheet = getSprite('limezu-office');
 
   if (officeSheet && officeSheet.frames.has('water_cooler')) {
     // Use Modern Office water cooler sprite
-    drawSpriteFrame(ctx, officeSheet, 'water_cooler', x, y - 10);
+    drawSpriteFrame(ctx, officeSheet, 'water_cooler', x, y);
 
     // Add animated bubbles on top
     if (Math.floor(t / ANIM.waterBubble) % 3 === 0) {
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.beginPath();
-      ctx.arc(x + 8, y + ((t / 100) % 10), 1, 0, Math.PI * 2);
+      ctx.arc(x + 8, y + 10 + ((t / 100) % 10), 1, 0, Math.PI * 2);
       ctx.fill();
     }
   } else {
@@ -528,12 +681,51 @@ function drawWaterCooler(ctx: CanvasRenderingContext2D, t: number): void {
   }
 }
 
+function drawStaticDesk(ctx: CanvasRenderingContext2D, x: number, y: number, chairFrame: string): void {
+  const officeSheet = getSprite('limezu-office');
+  if (!officeSheet) return;
+
+  if (officeSheet.frames.has('desk_wood_2x1_left')) {
+    drawSpriteFrame(ctx, officeSheet, 'desk_wood_2x1_left', x - 16, y - 16);
+    drawSpriteFrame(ctx, officeSheet, 'desk_wood_2x1_right', x, y - 16);
+    drawSpriteFrame(ctx, officeSheet, 'desk_wood_front_left', x - 16, y);
+    drawSpriteFrame(ctx, officeSheet, 'desk_wood_front_right', x, y);
+  }
+
+  if (officeSheet.frames.has('dual_monitors')) {
+    drawSpriteFrame(ctx, officeSheet, 'dual_monitors', x - 16, y - 32);
+  }
+  if (officeSheet.frames.has('keyboard_modern')) {
+    drawSpriteFrame(ctx, officeSheet, 'keyboard_modern', x - 8, y - 10);
+  }
+  if (officeSheet.frames.has('coffee_mug')) {
+    drawSpriteFrame(ctx, officeSheet, 'coffee_mug', x + 20, y - 16);
+  }
+  if (officeSheet.frames.has('papers_stack')) {
+    drawSpriteFrame(ctx, officeSheet, 'papers_stack', x - 32, y - 16);
+  }
+
+  if (officeSheet.frames.has(chairFrame)) {
+    const chairBaseY = y + 12;
+    drawSpriteFrame(ctx, officeSheet, chairFrame, x - 8, chairBaseY - 12);
+  }
+}
+
+function drawBackDesks(ctx: CanvasRenderingContext2D): void {
+  // Back wall desk (center)
+  drawStaticDesk(ctx, DESK_X, BACK_DESK_Y, 'chair_grey_back');
+
+  // Middle row desks (left/right)
+  drawStaticDesk(ctx, MID_LEFT_X, MID_DESK_Y, 'chair_blue_back');
+  drawStaticDesk(ctx, MID_RIGHT_X, MID_DESK_Y, 'chair_grey_back');
+}
+
 // =============================================================================
 // DESK & MONITOR
 // =============================================================================
 function drawDesk(ctx: CanvasRenderingContext2D, t: number, state: AppState): void {
-  const dx = IW * 0.5;
-  const dy = SCENE_TOP + SCENE_HEIGHT * 0.55;
+  const dx = DESK_X;
+  const dy = DESK_Y;
 
   // Try Modern Office sprites first
   const officeSheet = getSprite('limezu-office');
@@ -564,9 +756,15 @@ function drawDesk(ctx: CanvasRenderingContext2D, t: number, state: AppState): vo
       drawSpriteFrame(ctx, officeSheet, 'pencil_cup', dx + 20, dy - 32);
     }
 
-    // Still draw keyboard and monitor effects
-    drawKeyboard(ctx, dx, dy - 5, t, state);
-    drawMonitorEffects(ctx, dx, dy - 26, t, state);
+    // Keyboard (sprite if available)
+    if (officeSheet.frames.has('keyboard_modern')) {
+      drawSpriteFrame(ctx, officeSheet, 'keyboard_modern', dx - 8, dy - 10);
+    } else {
+      drawKeyboard(ctx, dx, dy - 6, t, state);
+    }
+
+    // Monitor effects
+    drawMonitorEffects(ctx, dx, dy - 30, t, state);
   } else {
     // Fallback: Procedural desk
     // Desk shadow
@@ -758,28 +956,36 @@ function drawKeyboard(ctx: CanvasRenderingContext2D, x: number, y: number, t: nu
 // LAMP
 // =============================================================================
 function drawLamp(ctx: CanvasRenderingContext2D, t: number): void {
-  const x = IW * 0.75;
-  const y = SCENE_TOP + SCENE_HEIGHT * 0.48;
+  const x = LAMP_POS.x;
+  const y = LAMP_POS.y;
 
-  // Base
+  const officeSheet = getSprite('limezu-office');
+  if (officeSheet && officeSheet.frames.has('lamp_desk_modern')) {
+    drawSpriteFrame(ctx, officeSheet, 'lamp_desk_modern', x, y);
+    ctx.fillStyle = P.lampGlow;
+    ctx.beginPath();
+    ctx.arc(x + 8, y + 20, 12, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  // Fallback lamp
   ctx.fillStyle = P.lampBase;
-  ctx.fillRect(x - 4, y + 20, 8, 3);
-  ctx.fillRect(x - 1, y + 5, 2, 15);
+  ctx.fillRect(x + 4, y + 18, 8, 3);
+  ctx.fillRect(x + 7, y + 4, 2, 15);
 
-  // Shade
   ctx.fillStyle = P.lampShade;
   ctx.beginPath();
-  ctx.moveTo(x - 8, y + 8);
-  ctx.lineTo(x + 8, y + 8);
-  ctx.lineTo(x + 5, y);
-  ctx.lineTo(x - 5, y);
+  ctx.moveTo(x, y + 8);
+  ctx.lineTo(x + 16, y + 8);
+  ctx.lineTo(x + 12, y);
+  ctx.lineTo(x + 4, y);
   ctx.closePath();
   ctx.fill();
 
-  // Glow
   ctx.fillStyle = P.lampGlow;
   ctx.beginPath();
-  ctx.arc(x, y + 15, 15, 0, Math.PI * 2);
+  ctx.arc(x + 8, y + 16, 14, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -791,13 +997,28 @@ function drawPlants(ctx: CanvasRenderingContext2D): void {
 
   if (officeSheet && officeSheet.frames.has('plant_tall')) {
     // Use Modern Office plant sprites
-    drawSpriteFrame(ctx, officeSheet, 'plant_tall', 5, SCENE_TOP + SCENE_HEIGHT * 0.35);
-    drawSpriteFrame(ctx, officeSheet, 'plant_small_pot', IW - 35, SCENE_TOP + SCENE_HEIGHT * 0.5);
-    drawSpriteFrame(ctx, officeSheet, 'plant_desk', IW - 50, SCENE_TOP + 45);
+    drawSpriteFrame(ctx, officeSheet, 'plant_tall', ROOM_X, FLOOR_Y + TILE);
+    drawSpriteFrame(ctx, officeSheet, 'plant_small_pot', ROOM_X + ROOM_W - TILE * 2, FLOOR_Y + TILE * 2);
+    drawSpriteFrame(ctx, officeSheet, 'plant_desk', DESK_X - TILE * 2, DESK_Y - TILE);
   } else {
     // Procedural plants (fallback)
-    drawProceduralPlant(ctx, 5, SCENE_TOP + SCENE_HEIGHT * 0.4, 'medium');
-    drawProceduralPlant(ctx, IW - 42, SCENE_TOP + SCENE_HEIGHT * 0.5, 'small');
+    drawProceduralPlant(ctx, ROOM_X + 2, FLOOR_Y + TILE, 'medium');
+    drawProceduralPlant(ctx, ROOM_X + ROOM_W - TILE * 2, FLOOR_Y + TILE * 2, 'small');
+  }
+}
+
+function drawLounge(ctx: CanvasRenderingContext2D): void {
+  const officeSheet = getSprite('limezu-office');
+  if (!officeSheet) return;
+
+  if (officeSheet.frames.has('couch_grey_3x1')) {
+    drawSpriteFrame(ctx, officeSheet, 'couch_grey_3x1', COUCH_POS.x, COUCH_POS.y);
+  }
+  if (officeSheet.frames.has('coffee_table')) {
+    drawSpriteFrame(ctx, officeSheet, 'coffee_table', COUCH_POS.x + 8, COUCH_POS.y + 16);
+  }
+  if (officeSheet.frames.has('coffee_mug')) {
+    drawSpriteFrame(ctx, officeSheet, 'coffee_mug', COUCH_POS.x + 18, COUCH_POS.y + 12);
   }
 }
 
@@ -951,12 +1172,19 @@ function drawCharacter(
   }
 
   // Chair (always procedural - looks fine)
-  ctx.fillStyle = P.serverMid;
-  ctx.fillRect(x - 6, baseY - 5, 12, 6);
-  ctx.fillStyle = P.serverDark;
-  ctx.fillRect(x - 7, baseY - 12, 2, 14);
-  ctx.fillRect(x + 5, baseY - 12, 2, 14);
-  ctx.fillRect(x - 7, baseY - 13, 14, 2);
+  const chairX = Math.round(x);
+  const chairY = Math.round(baseY);
+  const officeSheet = getSprite('limezu-office');
+  if (officeSheet && officeSheet.frames.has('chair_grey_back')) {
+    drawSpriteFrame(ctx, officeSheet, 'chair_grey_back', chairX - 8, chairY - 12);
+  } else {
+    ctx.fillStyle = P.serverMid;
+    ctx.fillRect(chairX - 6, chairY - 5, 12, 6);
+    ctx.fillStyle = P.serverDark;
+    ctx.fillRect(chairX - 7, chairY - 12, 2, 14);
+    ctx.fillRect(chairX + 5, chairY - 12, 2, 14);
+    ctx.fillRect(chairX - 7, chairY - 13, 14, 2);
+  }
 
   // Mode effects
   if (state.mode === 'thinking' && !isWalking && isMain) {
@@ -1136,6 +1364,10 @@ function drawMiniCharacter(ctx: CanvasRenderingContext2D, x: number, y: number, 
     ctx.arc(x, indicatorY, 2, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // Sub-agent label
+  const label = `SUBAGENT ${agent.characterIndex + 1}`;
+  drawTag(ctx, label, x, y - 30 * scale);
 }
 
 // =============================================================================
@@ -1174,14 +1406,121 @@ function drawConfetti(ctx: CanvasRenderingContext2D, t: number): void {
 // =============================================================================
 // UI OVERLAYS
 // =============================================================================
-function drawHeader(ctx: CanvasRenderingContext2D, state: AppState, time: number): void {
-  // Background
-  ctx.fillStyle = P.uiBg;
-  ctx.fillRect(0, 0, IW, HEADER_HEIGHT);
+function drawPanel(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, inset = false): void {
+  ctx.fillStyle = inset ? P.uiPanelInset : P.uiPanel;
+  ctx.fillRect(x, y, w, h);
 
-  // Border
-  ctx.fillStyle = P.uiBorder;
-  ctx.fillRect(0, HEADER_HEIGHT - 1, IW, 1);
+  ctx.fillStyle = P.uiPanelLight;
+  ctx.fillRect(x, y, w, 1);
+  ctx.fillRect(x, y, 1, h);
+
+  ctx.fillStyle = P.uiPanelDark;
+  ctx.fillRect(x, y + h - 1, w, 1);
+  ctx.fillRect(x + w - 1, y, 1, h);
+}
+
+function drawTag(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {
+  ctx.font = '5px monospace';
+  const w = Math.ceil(ctx.measureText(text).width) + 6;
+  const h = 8;
+  const bx = Math.min(IW - w - 1, Math.max(1, Math.round(x - w / 2)));
+  const by = Math.max(1, Math.round(y));
+  drawPanel(ctx, bx, by, w, h, true);
+  ctx.fillStyle = P.uiText;
+  ctx.fillText(text, bx + 3, by + 6);
+}
+
+function drawModeIcon(ctx: CanvasRenderingContext2D, mode: Mode, x: number, y: number, color: string): void {
+  const iconMap: Record<Mode, { sprite: string; frame: string }> = {
+    idle: { sprite: 'limezu-ui-bubble-empty', frame: 'ui_bubble_empty' },
+    typing: { sprite: 'limezu-ui-bubble-screen', frame: 'ui_bubble_screen' },
+    thinking: { sprite: 'limezu-ui-bubble-question', frame: 'ui_bubble_question' },
+    running: { sprite: 'limezu-ui-bubble-alert', frame: 'ui_bubble_alert' },
+    celebrate: { sprite: 'limezu-ui-bubble-hello', frame: 'ui_bubble_heart' },
+    error: { sprite: 'limezu-ui-bubble-exclaim', frame: 'ui_bubble_exclaim' },
+  };
+
+  const icon = iconMap[mode];
+  const sheet = getSprite(icon.sprite);
+  if (sheet && sheet.frames.has(icon.frame)) {
+    drawSpriteFrame(ctx, sheet, icon.frame, x - 2, y - 2);
+  } else {
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 2, y + 2, 4, 4);
+  }
+}
+
+function drawOverlayUI(ctx: CanvasRenderingContext2D, state: AppState, time: number): void {
+  const pad = 4;
+  const topLeft = { x: pad, y: pad, w: 92, h: 28 };
+  const topRight = { x: IW - pad - 78, y: pad, w: 78, h: 24 };
+  const bottom = { x: pad, y: IH - pad - 16, w: 150, h: 16 };
+
+  // Top-left info
+  drawPanel(ctx, topLeft.x, topLeft.y, topLeft.w, topLeft.h);
+  ctx.fillStyle = P.uiText;
+  ctx.font = 'bold 7px monospace';
+  ctx.fillText('PIXELHQ', topLeft.x + 4, topLeft.y + 8);
+
+  const subCount = state.agents.size;
+  const totalAgents = subCount + 1;
+  ctx.fillStyle = P.uiTextDim;
+  ctx.font = '5px monospace';
+  ctx.fillText(`Agents: ${totalAgents} (1 main + ${subCount} sub)`, topLeft.x + 4, topLeft.y + 16);
+
+  const tokens = state.tokens.totalInput + state.tokens.totalOutput;
+  const budget = state.estimatedTokenBudget || 100000;
+  const usagePct = Math.floor(Math.min(1, tokens / budget) * 100);
+  const connected = state.connectionState === 'connected' || state.connectionState === 'authenticated';
+  ctx.fillStyle = P.uiTextDim;
+  ctx.fillText(`Usage: ${usagePct}% | WS ${connected ? 'OK' : 'LOST'}`, topLeft.x + 4, topLeft.y + 23);
+
+  // Top-right trackers (tokens only)
+  drawPanel(ctx, topRight.x, topRight.y, topRight.w, topRight.h);
+  ctx.fillStyle = P.uiText;
+  ctx.font = '6px monospace';
+  ctx.fillText('TRACKERS', topRight.x + 4, topRight.y + 8);
+
+  const barX = topRight.x + 4;
+  const barY = topRight.y + 12;
+  const barW = topRight.w - 8;
+  const barH = 6;
+  drawPanel(ctx, barX, barY, barW, barH, true);
+  const progress = Math.min(1, tokens / budget);
+  const progressW = Math.floor((barW - 2) * progress);
+  const progressColor = progress < 0.6 ? P.uiAccent : progress < 0.85 ? P.uiWarning : P.uiError;
+  ctx.fillStyle = progressColor;
+  ctx.fillRect(barX + 1, barY + 1, progressW, barH - 2);
+  ctx.fillStyle = P.uiTextDim;
+  ctx.font = '4px monospace';
+  ctx.fillText(`Tokens: ${usagePct}%`, barX + 2, barY + barH - 1);
+
+  // Bottom states strip
+  drawPanel(ctx, bottom.x, bottom.y, bottom.w, bottom.h);
+  ctx.fillStyle = P.uiTextDim;
+  ctx.font = '5px monospace';
+  ctx.fillText('STATES', bottom.x + 4, bottom.y + 6);
+
+  const states: { mode: Mode; label: string }[] = [
+    { mode: 'idle', label: 'IDLE' },
+    { mode: 'typing', label: 'TYPING' },
+    { mode: 'thinking', label: 'THINKING' },
+    { mode: 'running', label: 'RUNNING' },
+    { mode: 'celebrate', label: 'DONE' },
+  ];
+
+  let sx = bottom.x + 36;
+  for (const st of states) {
+    ctx.fillStyle = state.mode === st.mode ? P.uiAccent : P.uiTextDim;
+    ctx.font = '5px monospace';
+    ctx.fillText(st.label, sx, bottom.y + 12);
+    sx += ctx.measureText(st.label).width + 6;
+  }
+
+}
+
+function drawHeader(ctx: CanvasRenderingContext2D, state: AppState, time: number): void {
+  drawPanel(ctx, 0, 0, IW, HEADER_HEIGHT);
 
   // Connection indicator
   const connected = state.connectionState === 'connected' || state.connectionState === 'authenticated';
@@ -1202,12 +1541,12 @@ function drawHeader(ctx: CanvasRenderingContext2D, state: AppState, time: number
     const seconds = Math.floor((elapsed % 60000) / 1000);
     const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillStyle = P.uiTextDim;
     ctx.font = '7px monospace';
     ctx.fillText(timeStr, IW - 28, HEADER_HEIGHT / 2 + 2);
   } else if (state.session) {
     // Fallback: show project name
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillStyle = P.uiTextDim;
     ctx.font = '6px monospace';
     const projectName = state.session.project.split('/').pop() || state.session.project;
     ctx.fillText(projectName.slice(0, 8), IW - 45, HEADER_HEIGHT / 2 + 2);
@@ -1217,13 +1556,7 @@ function drawHeader(ctx: CanvasRenderingContext2D, state: AppState, time: number
 function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): void {
   const footerY = IH - FOOTER_HEIGHT;
 
-  // Background - darker panel
-  ctx.fillStyle = '#1a1a2e';
-  ctx.fillRect(0, footerY, IW, FOOTER_HEIGHT);
-
-  // Top border highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.fillRect(0, footerY, IW, 1);
+  drawPanel(ctx, 0, footerY, IW, FOOTER_HEIGHT);
 
   // Status colors for modes
   const statusColors: Record<Mode, string> = {
@@ -1238,42 +1571,40 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
   // =========================================================================
   // MODE BUTTONS ROW (like reference image)
   // =========================================================================
-  const modes: { mode: Mode; icon: string; label: string }[] = [
-    { mode: 'idle', icon: '💬', label: 'IDLE' },
-    { mode: 'typing', icon: '💻', label: 'TYPING' },
-    { mode: 'thinking', icon: '💡', label: 'THINKING' },
-    { mode: 'running', icon: '⚡', label: 'RUNNING' },
-    { mode: 'celebrate', icon: '🎉', label: 'CELEBRATE' },
+  const modes: { mode: Mode; label: string }[] = [
+    { mode: 'idle', label: 'IDLE' },
+    { mode: 'typing', label: 'TYPING' },
+    { mode: 'thinking', label: 'THINKING' },
+    { mode: 'running', label: 'RUNNING' },
+    { mode: 'celebrate', label: 'CELEBRATE' },
   ];
 
   const btnY = footerY + 4;
-  const btnW = 34;
+  const btnW = 32;
   const btnH = 18;
-  const startX = (IW - modes.length * btnW) / 2;
+  const gap = 2;
+  const totalW = modes.length * btnW + (modes.length - 1) * gap;
+  const startX = Math.floor((IW - totalW) / 2);
 
   for (let i = 0; i < modes.length; i++) {
     const btn = modes[i];
-    const bx = startX + i * btnW;
+    const bx = startX + i * (btnW + gap);
     const isActive = state.mode === btn.mode;
 
-    // Button background
-    ctx.fillStyle = isActive ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.3)';
-    ctx.fillRect(bx + 1, btnY, btnW - 2, btnH);
+    drawPanel(ctx, bx, btnY, btnW, btnH, true);
 
-    // Active indicator border
     if (isActive) {
       ctx.strokeStyle = statusColors[btn.mode];
       ctx.lineWidth = 1;
-      ctx.strokeRect(bx + 1, btnY, btnW - 2, btnH);
+      ctx.strokeRect(bx, btnY, btnW, btnH);
     }
 
-    // Icon (small)
-    ctx.fillStyle = isActive ? '#fff' : 'rgba(255,255,255,0.5)';
-    ctx.font = '7px monospace';
-    ctx.fillText(btn.icon, bx + btnW / 2 - 4, btnY + 8);
+    const iconX = bx + Math.floor((btnW - 8) / 2);
+    const iconY = btnY + 3;
+    drawModeIcon(ctx, btn.mode, iconX, iconY, isActive ? statusColors[btn.mode] : P.uiTextDim);
 
     // Label
-    ctx.fillStyle = isActive ? statusColors[btn.mode] : 'rgba(255,255,255,0.4)';
+    ctx.fillStyle = isActive ? statusColors[btn.mode] : P.uiTextDim;
     ctx.font = '4px monospace';
     const labelWidth = ctx.measureText(btn.label).width;
     ctx.fillText(btn.label, bx + (btnW - labelWidth) / 2, btnY + 15);
@@ -1293,8 +1624,7 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
     const ay = agentListY + agentIdx * 11;
 
     // Agent row background
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(agentListX, ay, 70, 10);
+    drawPanel(ctx, agentListX, ay, 70, 10, true);
 
     // Mini agent face (using premade character or fallback)
     const premadeChar = getPremadeCharacter(agent.characterIndex);
@@ -1313,18 +1643,19 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
     }
 
     // Agent label
-    ctx.fillStyle = '#fff';
+    const roleLabel = (agent.role || 'Agent').toUpperCase();
+    ctx.fillStyle = P.uiText;
     ctx.font = '5px monospace';
-    ctx.fillText('Agent', agentListX + 12, ay + 6);
+    ctx.fillText(roleLabel.slice(0, 8), agentListX + 12, ay + 6);
 
-    // Token badge
-    const tokenPct = Math.floor(Math.random() * 200 + 100); // Placeholder
-    ctx.fillStyle = tokenPct > 100 ? P.uiWarning : P.uiAccent;
+    // Status label
+    const statusLabel = agent.status === 'running' ? 'RUN' : agent.status === 'error' ? 'ERR' : 'DONE';
+    ctx.fillStyle = agent.status === 'running' ? P.uiAccent : agent.status === 'error' ? P.uiError : P.uiTextDim;
     ctx.font = '4px monospace';
-    ctx.fillText(`Token ${tokenPct}%`, agentListX + 38, ay + 6);
+    ctx.fillText(statusLabel, agentListX + 50, ay + 6);
 
     // Status indicator
-    ctx.fillStyle = agent.status === 'running' ? P.uiAccent : agent.status === 'error' ? P.uiError : '#888';
+    ctx.fillStyle = agent.status === 'running' ? P.uiAccent : agent.status === 'error' ? P.uiError : P.uiTextDim;
     ctx.beginPath();
     ctx.arc(agentListX + 66, ay + 5, 2, 0, Math.PI * 2);
     ctx.fill();
@@ -1334,7 +1665,7 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
 
   // If no agents, show placeholder
   if (state.agents.size === 0) {
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillStyle = P.uiTextDim;
     ctx.font = '5px monospace';
     ctx.fillText('No sub-agents', agentListX + 5, agentListY + 6);
   }
@@ -1353,8 +1684,7 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
   const barHeight = 8;
 
   // Progress bar background
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.fillRect(barX, barY, barWidth, barHeight);
+  drawPanel(ctx, barX, barY, barWidth, barHeight, true);
 
   // Progress fill with gradient
   const progressColor = progress < 0.6 ? P.uiAccent : progress < 0.85 ? P.uiWarning : P.uiError;
@@ -1362,7 +1692,7 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
   progressGrad.addColorStop(0, progressColor);
   progressGrad.addColorStop(1, progress < 0.6 ? '#00cc6a' : progress < 0.85 ? '#cc8800' : '#cc3333');
   ctx.fillStyle = progressGrad;
-  ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+  ctx.fillRect(barX + 1, barY + 1, Math.floor((barWidth - 2) * progress), barHeight - 2);
 
   // Progress percentage text
   ctx.fillStyle = '#fff';
@@ -1388,11 +1718,10 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
     const stat = stats[i];
 
     // Box background
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(sx, statsY, statBoxW, 18);
+    drawPanel(ctx, sx, statsY, statBoxW, 18, true);
 
     // Label
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillStyle = P.uiTextDim;
     ctx.font = '4px monospace';
     ctx.fillText(stat.label, sx + 2, statsY + 5);
 
@@ -1422,7 +1751,7 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
 
   // Tool info (if active)
   if (state.currentTool) {
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillStyle = P.uiTextDim;
     ctx.font = '5px monospace';
     const toolText = state.currentTool.context || state.currentTool.detail;
     ctx.fillText(toolText.slice(0, 25), 55, IH - 3);

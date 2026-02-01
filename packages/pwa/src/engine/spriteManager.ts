@@ -41,6 +41,16 @@ export async function initSprites(): Promise<void> {
     // Modern Office pack (paid)
     { name: 'limezu-office', url: '/sprites/limezu/office/Modern_Office_16x16.png', frames: createModernOfficeFrames() },
     { name: 'limezu-office-room', url: '/sprites/limezu/office/Room_Builder_Office_16x16.png', frames: createOfficeRoomFrames() },
+    { name: 'limezu-office-design-1', url: '/sprites/limezu/office/Office_Design_1.png', frames: createOfficeDesignFrames('office_design_1') },
+    { name: 'limezu-office-design-2', url: '/sprites/limezu/office/Office_Design_2.png', frames: createOfficeDesignFrames('office_design_2') },
+    // Limezu UI elements (16x16 tiles)
+    { name: 'limezu-ui-bubble-empty', url: '/sprites/limezu/ui/bubble_empty.png', frames: createSingleTileFrame('ui_bubble_empty') },
+    { name: 'limezu-ui-bubble-hello', url: '/sprites/limezu/ui/bubble_heart.png', frames: createSingleTileFrame('ui_bubble_heart') },
+    { name: 'limezu-ui-bubble-question', url: '/sprites/limezu/ui/bubble_question.png', frames: createSingleTileFrame('ui_bubble_question') },
+    { name: 'limezu-ui-bubble-exclaim', url: '/sprites/limezu/ui/bubble_exclaim.png', frames: createSingleTileFrame('ui_bubble_exclaim') },
+    { name: 'limezu-ui-bubble-lightbulb', url: '/sprites/limezu/ui/bubble_lightbulb.png', frames: createSingleTileFrame('ui_bubble_lightbulb') },
+    { name: 'limezu-ui-bubble-alert', url: '/sprites/limezu/ui/bubble_alert.png', frames: createSingleTileFrame('ui_bubble_alert') },
+    { name: 'limezu-ui-bubble-screen', url: '/sprites/limezu/ui/bubble_screen.png', frames: createSingleTileFrame('ui_bubble_screen') },
     // Premade characters for sub-agents (paid)
     { name: 'limezu-char-01', url: '/sprites/limezu/Premade_Character_01.png', frames: createPremadeCharacterFrames('char01') },
     { name: 'limezu-char-02', url: '/sprites/limezu/Premade_Character_02.png', frames: createPremadeCharacterFrames('char02') },
@@ -645,6 +655,17 @@ function createModernOfficeFrames(): FrameData[] {
   frames.push({ name: 'vent', x: 208, y: 0, w: 16, h: 16 });
 
   return frames;
+}
+
+/**
+ * Office design background (single frame)
+ */
+function createOfficeDesignFrames(name: string): FrameData[] {
+  return [{ name, x: 0, y: 0, w: 416, h: 384 }];
+}
+
+function createSingleTileFrame(name: string): FrameData[] {
+  return [{ name, x: 0, y: 0, w: 16, h: 16 }];
 }
 
 /**
