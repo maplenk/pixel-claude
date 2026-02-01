@@ -2,7 +2,7 @@ import type { Mode, Activity, ToolCategory } from '../types';
 import type { AppState, AgentInfo } from '../store/state';
 import { ART_CONFIG, TOOL_EFFECT_MAP } from '../types';
 import { clearCanvas } from '../engine/canvas';
-import { getSprite, hasSprites, getModeFrame, getLimeZuFrame, hasLimeZuSprites } from '../engine/spriteManager';
+import { getSprite, hasSprites, getModeFrame, getLimeZuFrame, hasLimeZuSprites, hasModernOfficeSprites, getPremadeCharacter, getPremadeCharFrame } from '../engine/spriteManager';
 import { drawSpriteFrame } from '../engine/sprites';
 import { drawToolEffects, startToolEffect, stopToolEffect } from '../engine/effects';
 
@@ -398,32 +398,59 @@ function drawServerRack(ctx: CanvasRenderingContext2D, t: number, state: AppStat
   const w = 22;
   const h = 55;
 
-  // Shadow
-  ctx.fillStyle = P.shadow;
-  ctx.fillRect(x + 2, y + 2, w, h);
+  const officeSheet = getSprite('limezu-office');
 
-  // Rack frame
-  ctx.fillStyle = P.serverDark;
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = P.serverMid;
-  ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  if (officeSheet && officeSheet.frames.has('server_rack_3x4')) {
+    // Use Modern Office server rack sprite
+    drawSpriteFrame(ctx, officeSheet, 'server_rack_3x4', x - 5, y - 5);
 
-  // Server units
+    // Draw animated LEDs on top of sprite
+    drawServerLEDs(ctx, x, y, w, h, t, state);
+  } else {
+    // Procedural server rack (fallback)
+    // Shadow
+    ctx.fillStyle = P.shadow;
+    ctx.fillRect(x + 2, y + 2, w, h);
+
+    // Rack frame
+    ctx.fillStyle = P.serverDark;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = P.serverMid;
+    ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+
+    // Server units
+    for (let i = 0; i < 5; i++) {
+      const uy = y + 4 + i * 10;
+
+      // Unit body
+      ctx.fillStyle = P.serverDark;
+      ctx.fillRect(x + 3, uy, w - 6, 8);
+      ctx.fillStyle = P.serverLight;
+      ctx.fillRect(x + 4, uy + 1, w - 8, 6);
+
+      // Vents
+      ctx.fillStyle = P.serverDark;
+      ctx.fillRect(x + 5, uy + 2, 4, 1);
+      ctx.fillRect(x + 5, uy + 4, 4, 1);
+    }
+
+    drawServerLEDs(ctx, x, y, w, h, t, state);
+  }
+
+  // Glow effect when running
+  if (state.mode === 'running') {
+    const intensity = 0.1 + Math.sin(t / 150) * 0.05;
+    ctx.fillStyle = `rgba(0,255,136,${intensity})`;
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h / 2, 25, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawServerLEDs(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, t: number, state: AppState): void {
   for (let i = 0; i < 5; i++) {
     const uy = y + 4 + i * 10;
 
-    // Unit body
-    ctx.fillStyle = P.serverDark;
-    ctx.fillRect(x + 3, uy, w - 6, 8);
-    ctx.fillStyle = P.serverLight;
-    ctx.fillRect(x + 4, uy + 1, w - 8, 6);
-
-    // Vents
-    ctx.fillStyle = P.serverDark;
-    ctx.fillRect(x + 5, uy + 2, 4, 1);
-    ctx.fillRect(x + 5, uy + 4, 4, 1);
-
-    // LEDs
     for (let led = 0; led < 2; led++) {
       let color = P.ledOff;
 
@@ -437,22 +464,12 @@ function drawServerRack(ctx: CanvasRenderingContext2D, t: number, state: AppStat
       } else if (state.mode === 'celebrate') {
         color = P.ledGreen;
       } else {
-        // Idle pulse
         color = Math.sin(t / 1000 + i) > 0.5 ? P.ledGreen : P.ledOff;
       }
 
       ctx.fillStyle = color;
       ctx.fillRect(x + w - 8, uy + 2 + led * 3, 3, 2);
     }
-  }
-
-  // Glow effect when running
-  if (state.mode === 'running') {
-    const intensity = 0.1 + Math.sin(t / 150) * 0.05;
-    ctx.fillStyle = `rgba(0,255,136,${intensity})`;
-    ctx.beginPath();
-    ctx.arc(x + w / 2, y + h / 2, 25, 0, Math.PI * 2);
-    ctx.fill();
   }
 }
 
@@ -463,36 +480,52 @@ function drawWaterCooler(ctx: CanvasRenderingContext2D, t: number): void {
   const x = 10;
   const y = SCENE_TOP + SCENE_HEIGHT * 0.45;
 
-  // Base
-  ctx.fillStyle = P.coolerBody;
-  ctx.fillRect(x, y + 20, 14, 8);
+  const officeSheet = getSprite('limezu-office');
 
-  // Body
-  ctx.fillRect(x + 1, y + 5, 12, 15);
+  if (officeSheet && officeSheet.frames.has('water_cooler')) {
+    // Use Modern Office water cooler sprite
+    drawSpriteFrame(ctx, officeSheet, 'water_cooler', x, y - 10);
 
-  // Water bottle
-  ctx.fillStyle = P.coolerWater;
-  ctx.globalAlpha = 0.7;
-  ctx.fillRect(x + 3, y - 5, 8, 12);
-  ctx.globalAlpha = 1;
+    // Add animated bubbles on top
+    if (Math.floor(t / ANIM.waterBubble) % 3 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath();
+      ctx.arc(x + 8, y + ((t / 100) % 10), 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    // Procedural water cooler (fallback)
+    // Base
+    ctx.fillStyle = P.coolerBody;
+    ctx.fillRect(x, y + 20, 14, 8);
 
-  // Highlight
-  ctx.fillStyle = P.coolerHighlight;
-  ctx.globalAlpha = 0.5;
-  ctx.fillRect(x + 4, y - 4, 2, 10);
-  ctx.globalAlpha = 1;
+    // Body
+    ctx.fillRect(x + 1, y + 5, 12, 15);
 
-  // Bubbles
-  if (Math.floor(t / ANIM.waterBubble) % 3 === 0) {
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.beginPath();
-    ctx.arc(x + 7, y + ((t / 100) % 10), 1, 0, Math.PI * 2);
-    ctx.fill();
+    // Water bottle
+    ctx.fillStyle = P.coolerWater;
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(x + 3, y - 5, 8, 12);
+    ctx.globalAlpha = 1;
+
+    // Highlight
+    ctx.fillStyle = P.coolerHighlight;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(x + 4, y - 4, 2, 10);
+    ctx.globalAlpha = 1;
+
+    // Bubbles
+    if (Math.floor(t / ANIM.waterBubble) % 3 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath();
+      ctx.arc(x + 7, y + ((t / 100) % 10), 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Dispenser
+    ctx.fillStyle = P.coolerBody;
+    ctx.fillRect(x + 4, y + 15, 6, 5);
   }
-
-  // Dispenser
-  ctx.fillStyle = P.coolerBody;
-  ctx.fillRect(x + 4, y + 15, 6, 5);
 }
 
 // =============================================================================
@@ -502,55 +535,126 @@ function drawDesk(ctx: CanvasRenderingContext2D, t: number, state: AppState): vo
   const dx = IW * 0.5;
   const dy = SCENE_TOP + SCENE_HEIGHT * 0.55;
 
-  // Desk shadow
-  ctx.fillStyle = P.shadowLight;
-  ctx.fillRect(dx - 35 + 2, dy + 2, 70, 20);
+  // Try Modern Office sprites first
+  const officeSheet = getSprite('limezu-office');
 
-  // Desk surface
-  ctx.fillStyle = P.woodLight;
-  ctx.fillRect(dx - 35, dy - 2, 70, 4);
-  ctx.fillStyle = P.woodHighlight;
-  ctx.fillRect(dx - 35, dy - 2, 70, 1);
+  if (officeSheet) {
+    // Use Modern Office tileset for desk
+    // Draw desk using tiles (2 tiles wide)
+    if (officeSheet.frames.has('desk_wood_2x1_left')) {
+      drawSpriteFrame(ctx, officeSheet, 'desk_wood_2x1_left', dx - 16, dy - 16);
+      drawSpriteFrame(ctx, officeSheet, 'desk_wood_2x1_right', dx, dy - 16);
+      drawSpriteFrame(ctx, officeSheet, 'desk_wood_front_left', dx - 16, dy);
+      drawSpriteFrame(ctx, officeSheet, 'desk_wood_front_right', dx, dy);
+    }
 
-  // Desk front
-  ctx.fillStyle = P.woodMid;
-  ctx.fillRect(dx - 35, dy + 2, 70, 18);
-  ctx.fillStyle = P.woodDark;
-  ctx.fillRect(dx - 35, dy + 18, 70, 2);
+    // Draw dual monitors
+    if (officeSheet.frames.has('dual_monitors')) {
+      drawSpriteFrame(ctx, officeSheet, 'dual_monitors', dx - 16, dy - 32);
+    }
 
-  // Drawer
-  ctx.strokeStyle = P.woodDark;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(dx - 12, dy + 6, 24, 10);
-  ctx.fillStyle = P.woodDark;
-  ctx.fillRect(dx - 2, dy + 10, 4, 2);
+    // Draw office supplies
+    if (officeSheet.frames.has('coffee_mug')) {
+      drawSpriteFrame(ctx, officeSheet, 'coffee_mug', dx + 20, dy - 16);
+    }
+    if (officeSheet.frames.has('papers_stack')) {
+      drawSpriteFrame(ctx, officeSheet, 'papers_stack', dx - 32, dy - 16);
+    }
+    if (officeSheet.frames.has('pencil_cup')) {
+      drawSpriteFrame(ctx, officeSheet, 'pencil_cup', dx + 20, dy - 32);
+    }
 
-  // Monitor
-  drawMonitor(ctx, dx, dy - 30, t, state);
-
-  // Keyboard
-  drawKeyboard(ctx, dx, dy - 5, t, state);
-
-  // Coffee mug - try sprite first
-  const thingsSheet = getSprite('things');
-  if (thingsSheet && thingsSheet.frames.has('thing_0_0')) {
-    drawSpriteFrame(ctx, thingsSheet, 'thing_0_0', dx + 22, dy - 12);
+    // Still draw keyboard and monitor effects
+    drawKeyboard(ctx, dx, dy - 5, t, state);
+    drawMonitorEffects(ctx, dx, dy - 26, t, state);
   } else {
-    ctx.fillStyle = '#e8e8f0';
-    ctx.fillRect(dx + 25, dy - 8, 7, 6);
-    ctx.fillStyle = '#5d4037';
-    ctx.fillRect(dx + 26, dy - 7, 5, 2);
+    // Fallback: Procedural desk
+    // Desk shadow
+    ctx.fillStyle = P.shadowLight;
+    ctx.fillRect(dx - 35 + 2, dy + 2, 70, 20);
+
+    // Desk surface
+    ctx.fillStyle = P.woodLight;
+    ctx.fillRect(dx - 35, dy - 2, 70, 4);
+    ctx.fillStyle = P.woodHighlight;
+    ctx.fillRect(dx - 35, dy - 2, 70, 1);
+
+    // Desk front
+    ctx.fillStyle = P.woodMid;
+    ctx.fillRect(dx - 35, dy + 2, 70, 18);
+    ctx.fillStyle = P.woodDark;
+    ctx.fillRect(dx - 35, dy + 18, 70, 2);
+
+    // Drawer
+    ctx.strokeStyle = P.woodDark;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(dx - 12, dy + 6, 24, 10);
+    ctx.fillStyle = P.woodDark;
+    ctx.fillRect(dx - 2, dy + 10, 4, 2);
+
+    // Monitor
+    drawMonitor(ctx, dx, dy - 30, t, state);
+
+    // Keyboard
+    drawKeyboard(ctx, dx, dy - 5, t, state);
+
+    // Coffee mug - try sprite first
+    const thingsSheet = getSprite('things');
+    if (thingsSheet && thingsSheet.frames.has('thing_0_0')) {
+      drawSpriteFrame(ctx, thingsSheet, 'thing_0_0', dx + 22, dy - 12);
+    } else {
+      ctx.fillStyle = '#e8e8f0';
+      ctx.fillRect(dx + 25, dy - 8, 7, 6);
+      ctx.fillStyle = '#5d4037';
+      ctx.fillRect(dx + 26, dy - 7, 5, 2);
+    }
+
+    // Papers - try sprite first
+    if (thingsSheet && thingsSheet.frames.has('thing_0_2')) {
+      drawSpriteFrame(ctx, thingsSheet, 'thing_0_2', dx - 32, dy - 10);
+    } else {
+      ctx.fillStyle = '#f0f0f0';
+      ctx.fillRect(dx - 30, dy - 6, 8, 10);
+      ctx.fillStyle = P.stickyYellow;
+      ctx.fillRect(dx - 29, dy - 4, 5, 5);
+    }
+  }
+}
+
+/**
+ * Draw just the monitor screen effects (when using sprite-based desk)
+ */
+function drawMonitorEffects(ctx: CanvasRenderingContext2D, x: number, y: number, t: number, state: AppState): void {
+  const mw = 28;
+  const mh = 12;
+
+  // Screen content based on state (drawn on top of sprite)
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  if (state.mode === 'typing' || state.activity === 'responding') {
+    ctx.fillStyle = 'rgba(0,255,136,0.3)';
+    const lines = [6, 10, 8, 12];
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillRect(x - mw / 2 + 2, y + 2 + i * 3, lines[i] * (0.5 + Math.sin(t / 150) * 0.5), 1);
+    }
+  } else if (state.mode === 'running') {
+    ctx.fillStyle = 'rgba(0,255,136,0.4)';
+    const offset = Math.floor(t / 80) % 4;
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(x - mw / 2 + 2, y + 2 + ((i + offset) % 4) * 3, 6 + ((i * 5) % 8), 1);
+    }
+  } else if (state.mode === 'celebrate') {
+    ctx.fillStyle = 'rgba(0,255,136,0.5)';
+    ctx.fillRect(x - 4, y + 3, 2, 6);
+    ctx.fillRect(x - 2, y + 6, 6, 2);
+  } else if (state.mode === 'error') {
+    ctx.fillStyle = 'rgba(255,74,74,0.5)';
+    ctx.fillRect(x - 4, y + 3, 8, 2);
+    ctx.fillRect(x - 4, y + 7, 8, 2);
   }
 
-  // Papers - try sprite first
-  if (thingsSheet && thingsSheet.frames.has('thing_0_2')) {
-    drawSpriteFrame(ctx, thingsSheet, 'thing_0_2', dx - 32, dy - 10);
-  } else {
-    ctx.fillStyle = '#f0f0f0';
-    ctx.fillRect(dx - 30, dy - 6, 8, 10);
-    ctx.fillStyle = P.stickyYellow;
-    ctx.fillRect(dx - 29, dy - 4, 5, 5);
-  }
+  ctx.restore();
 }
 
 function drawMonitor(ctx: CanvasRenderingContext2D, x: number, y: number, t: number, state: AppState): void {
@@ -680,12 +784,21 @@ function drawLamp(ctx: CanvasRenderingContext2D, t: number): void {
 }
 
 // =============================================================================
-// PLANTS (procedural for now - sprite coordinates need proper mapping)
+// PLANTS
 // =============================================================================
 function drawPlants(ctx: CanvasRenderingContext2D): void {
-  // Procedural plants (cleaner until sprite coords are properly mapped)
-  drawProceduralPlant(ctx, 5, SCENE_TOP + SCENE_HEIGHT * 0.4, 'medium');
-  drawProceduralPlant(ctx, IW - 42, SCENE_TOP + SCENE_HEIGHT * 0.5, 'small');
+  const officeSheet = getSprite('limezu-office');
+
+  if (officeSheet && officeSheet.frames.has('plant_tall')) {
+    // Use Modern Office plant sprites
+    drawSpriteFrame(ctx, officeSheet, 'plant_tall', 5, SCENE_TOP + SCENE_HEIGHT * 0.35);
+    drawSpriteFrame(ctx, officeSheet, 'plant_small_pot', IW - 35, SCENE_TOP + SCENE_HEIGHT * 0.5);
+    drawSpriteFrame(ctx, officeSheet, 'plant_desk', IW - 50, SCENE_TOP + 45);
+  } else {
+    // Procedural plants (fallback)
+    drawProceduralPlant(ctx, 5, SCENE_TOP + SCENE_HEIGHT * 0.4, 'medium');
+    drawProceduralPlant(ctx, IW - 42, SCENE_TOP + SCENE_HEIGHT * 0.5, 'small');
+  }
 }
 
 function drawProceduralPlant(ctx: CanvasRenderingContext2D, x: number, y: number, size: 'small' | 'medium' | 'large'): void {
@@ -934,7 +1047,7 @@ function drawSubAgents(ctx: CanvasRenderingContext2D, t: number, state: AppState
 }
 
 function drawMiniCharacter(ctx: CanvasRenderingContext2D, x: number, y: number, agent: AgentInfo, t: number): void {
-  const scale = 0.6;
+  const scale = 0.7;
   const isWalking = agent.animState === 'walking_in' || agent.animState === 'walking_out';
 
   // Determine facing direction based on movement
@@ -947,54 +1060,60 @@ function drawMiniCharacter(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.ellipse(x, y + 1, 4, 1.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Apply color tint for character variety
-  const tint = CHARACTER_TINTS[agent.characterIndex % CHARACTER_TINTS.length];
+  // Try to use Premade Characters (paid pack - different characters for each agent)
+  const premadeChar = getPremadeCharacter(agent.characterIndex);
 
-  // Try to use Alex sprites for sub-agents
-  const alexIdle = getSprite('limezu-alex-idle');
-  const alexRun = getSprite('limezu-alex-run');
+  if (premadeChar) {
+    const animation = isWalking ? 'run' : 'idle';
+    const frameName = getPremadeCharFrame(agent.characterIndex, animation, t, direction);
 
-  if (alexIdle || alexRun) {
-    // Choose sprite based on walking state
-    const sheet = isWalking && alexRun ? alexRun : alexIdle;
-    const animPrefix = isWalking ? 'alex_run' : 'alex_idle';
-
-    if (sheet) {
-      const frameName = getLimeZuFrame(animPrefix, t, direction);
-
-      ctx.save();
-      ctx.translate(x - 8 * scale, y - 32 * scale);
-      ctx.scale(scale, scale);
-
-      // Apply tint filter if available
-      if (tint) {
-        ctx.filter = tint;
-      }
-
-      drawSpriteFrame(ctx, sheet, frameName, 0, 0);
-      ctx.restore();
-    }
+    ctx.save();
+    ctx.translate(x - 8 * scale, y - 32 * scale);
+    ctx.scale(scale, scale);
+    drawSpriteFrame(ctx, premadeChar, frameName, 0, 0);
+    ctx.restore();
   } else {
-    // Fallback: Try OpenGameArt characters
-    const charSheet = getSprite('characters');
-    if (charSheet) {
-      const frameIdx = Math.floor(t / 300) % 2;
-      const frameName = isWalking ? `walk_${frameIdx}` : `idle_${frameIdx}`;
+    // Fallback: Use Alex sprites with tinting
+    const tint = CHARACTER_TINTS[agent.characterIndex % CHARACTER_TINTS.length];
+    const alexIdle = getSprite('limezu-alex-idle');
+    const alexRun = getSprite('limezu-alex-run');
 
-      ctx.save();
-      ctx.translate(x - 8, y - 16);
-      ctx.scale(scale, scale);
-      if (tint) ctx.filter = tint;
-      drawSpriteFrame(ctx, charSheet, frameName, 0, 0);
-      ctx.restore();
+    if (alexIdle || alexRun) {
+      const sheet = isWalking && alexRun ? alexRun : alexIdle;
+      const animPrefix = isWalking ? 'alex_run' : 'alex_idle';
+
+      if (sheet) {
+        const frameName = getLimeZuFrame(animPrefix, t, direction);
+
+        ctx.save();
+        ctx.translate(x - 8 * scale, y - 32 * scale);
+        ctx.scale(scale, scale);
+        if (tint) ctx.filter = tint;
+        drawSpriteFrame(ctx, sheet, frameName, 0, 0);
+        ctx.restore();
+      }
     } else {
-      // Fallback: Procedural mini character with tinted color
-      const baseColor = agent.status === 'error' ? P.uiError : agent.status === 'completed' ? P.uiAccent : P.shirtBlue;
-      ctx.fillStyle = baseColor;
-      ctx.fillRect(x - 3 * scale, y - 12 * scale, 6 * scale, 8 * scale);
+      // Fallback: Try OpenGameArt characters
+      const charSheet = getSprite('characters');
+      if (charSheet) {
+        const frameIdx = Math.floor(t / 300) % 2;
+        const frameName = isWalking ? `walk_${frameIdx}` : `idle_${frameIdx}`;
 
-      ctx.fillStyle = P.hairDark;
-      ctx.fillRect(x - 3 * scale, y - 18 * scale, 6 * scale, 5 * scale);
+        ctx.save();
+        ctx.translate(x - 8, y - 16);
+        ctx.scale(scale, scale);
+        if (tint) ctx.filter = tint;
+        drawSpriteFrame(ctx, charSheet, frameName, 0, 0);
+        ctx.restore();
+      } else {
+        // Fallback: Procedural mini character with tinted color
+        const baseColor = agent.status === 'error' ? P.uiError : agent.status === 'completed' ? P.uiAccent : P.shirtBlue;
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(x - 3 * scale, y - 12 * scale, 6 * scale, 8 * scale);
+
+        ctx.fillStyle = P.hairDark;
+        ctx.fillRect(x - 3 * scale, y - 18 * scale, 6 * scale, 5 * scale);
+      }
     }
   }
 
@@ -1098,64 +1217,38 @@ function drawHeader(ctx: CanvasRenderingContext2D, state: AppState, time: number
 function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): void {
   const footerY = IH - FOOTER_HEIGHT;
 
-  // Background
-  ctx.fillStyle = P.uiBg;
+  // Background - darker panel
+  ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, footerY, IW, FOOTER_HEIGHT);
 
-  // Border
-  ctx.fillStyle = P.uiBorder;
+  // Top border highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
   ctx.fillRect(0, footerY, IW, 1);
 
-  // Status line
-  const statusY = footerY + 12;
+  // Status colors for modes
   const statusColors: Record<Mode, string> = {
-    idle: P.uiText,
+    idle: '#8a8a9a',
     typing: P.uiAccent,
     running: P.uiWarning,
-    thinking: P.diagramPurple,
-    celebrate: P.stickyYellow,
+    thinking: '#ffd700',
+    celebrate: '#ff6b6b',
     error: P.uiError,
   };
-  const statusNames: Record<Mode, string> = {
-    idle: 'IDLE',
-    typing: 'TYPING',
-    running: 'RUNNING',
-    thinking: 'THINKING',
-    celebrate: 'COMPLETE',
-    error: 'ERROR',
-  };
 
-  // Status dot
-  ctx.fillStyle = statusColors[state.mode];
-  ctx.beginPath();
-  ctx.arc(10, statusY, 3, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Status text
-  ctx.fillStyle = statusColors[state.mode];
-  ctx.font = 'bold 7px monospace';
-  ctx.fillText(statusNames[state.mode], 18, statusY + 2);
-
-  // Tool info
-  if (state.currentTool) {
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = '6px monospace';
-    const toolText = state.currentTool.context || state.currentTool.detail;
-    ctx.fillText(toolText.slice(0, 20), 70, statusY + 2);
-  }
-
-  // Mode buttons
+  // =========================================================================
+  // MODE BUTTONS ROW (like reference image)
+  // =========================================================================
   const modes: { mode: Mode; icon: string; label: string }[] = [
-    { mode: 'running', icon: '▶', label: 'Run' },
-    { mode: 'idle', icon: '◯', label: 'Idle' },
-    { mode: 'typing', icon: '⌨', label: 'Type' },
-    { mode: 'thinking', icon: '💡', label: 'Think' },
-    { mode: 'error', icon: '!', label: 'Err' },
+    { mode: 'idle', icon: '💬', label: 'IDLE' },
+    { mode: 'typing', icon: '💻', label: 'TYPING' },
+    { mode: 'thinking', icon: '💡', label: 'THINKING' },
+    { mode: 'running', icon: '⚡', label: 'RUNNING' },
+    { mode: 'celebrate', icon: '🎉', label: 'CELEBRATE' },
   ];
 
-  const btnY = footerY + 30;
-  const btnW = 32;
-  const btnH = 24;
+  const btnY = footerY + 4;
+  const btnW = 34;
+  const btnH = 18;
   const startX = (IW - modes.length * btnW) / 2;
 
   for (let i = 0; i < modes.length; i++) {
@@ -1164,47 +1257,180 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
     const isActive = state.mode === btn.mode;
 
     // Button background
-    ctx.fillStyle = isActive ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
-    ctx.fillRect(bx + 2, btnY, btnW - 4, btnH);
+    ctx.fillStyle = isActive ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.3)';
+    ctx.fillRect(bx + 1, btnY, btnW - 2, btnH);
 
-    // Border
-    ctx.strokeStyle = isActive ? statusColors[btn.mode] : P.uiBorder;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(bx + 2, btnY, btnW - 4, btnH);
+    // Active indicator border
+    if (isActive) {
+      ctx.strokeStyle = statusColors[btn.mode];
+      ctx.lineWidth = 1;
+      ctx.strokeRect(bx + 1, btnY, btnW - 2, btnH);
+    }
 
-    // Icon
-    ctx.fillStyle = isActive ? statusColors[btn.mode] : 'rgba(255,255,255,0.5)';
-    ctx.font = '8px monospace';
-    ctx.fillText(btn.icon, bx + 12, btnY + 10);
+    // Icon (small)
+    ctx.fillStyle = isActive ? '#fff' : 'rgba(255,255,255,0.5)';
+    ctx.font = '7px monospace';
+    ctx.fillText(btn.icon, bx + btnW / 2 - 4, btnY + 8);
 
     // Label
-    ctx.font = '5px monospace';
-    ctx.fillText(btn.label, bx + 8, btnY + 19);
+    ctx.fillStyle = isActive ? statusColors[btn.mode] : 'rgba(255,255,255,0.4)';
+    ctx.font = '4px monospace';
+    const labelWidth = ctx.measureText(btn.label).width;
+    ctx.fillText(btn.label, bx + (btnW - labelWidth) / 2, btnY + 15);
   }
 
-  // Token progress bar (top right of footer)
+  // =========================================================================
+  // AGENTS LIST (left side - like reference)
+  // =========================================================================
+  const agentListY = footerY + 26;
+  const agentListX = 5;
+
+  // Draw agents (max 3 visible)
+  let agentIdx = 0;
+  for (const [agentId, agent] of state.agents) {
+    if (agentIdx >= 3) break;
+
+    const ay = agentListY + agentIdx * 11;
+
+    // Agent row background
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(agentListX, ay, 70, 10);
+
+    // Mini agent face (using premade character or fallback)
+    const premadeChar = getPremadeCharacter(agent.characterIndex);
+    if (premadeChar && premadeChar.frames.has(`char0${(agent.characterIndex % 6) + 1}_idle_0`)) {
+      ctx.save();
+      ctx.translate(agentListX + 1, ay - 5);
+      ctx.scale(0.35, 0.35);
+      drawSpriteFrame(ctx, premadeChar, `char0${(agent.characterIndex % 6) + 1}_idle_0`, 0, 0);
+      ctx.restore();
+    } else {
+      // Fallback mini face
+      ctx.fillStyle = '#ffd9b3';
+      ctx.fillRect(agentListX + 2, ay + 2, 6, 6);
+      ctx.fillStyle = '#3a2a1a';
+      ctx.fillRect(agentListX + 2, ay + 1, 6, 3);
+    }
+
+    // Agent label
+    ctx.fillStyle = '#fff';
+    ctx.font = '5px monospace';
+    ctx.fillText('Agent', agentListX + 12, ay + 6);
+
+    // Token badge
+    const tokenPct = Math.floor(Math.random() * 200 + 100); // Placeholder
+    ctx.fillStyle = tokenPct > 100 ? P.uiWarning : P.uiAccent;
+    ctx.font = '4px monospace';
+    ctx.fillText(`Token ${tokenPct}%`, agentListX + 38, ay + 6);
+
+    // Status indicator
+    ctx.fillStyle = agent.status === 'running' ? P.uiAccent : agent.status === 'error' ? P.uiError : '#888';
+    ctx.beginPath();
+    ctx.arc(agentListX + 66, ay + 5, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    agentIdx++;
+  }
+
+  // If no agents, show placeholder
+  if (state.agents.size === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '5px monospace';
+    ctx.fillText('No sub-agents', agentListX + 5, agentListY + 6);
+  }
+
+  // =========================================================================
+  // PROGRESS BAR (top right, spanning width)
+  // =========================================================================
   const tokens = state.tokens.totalInput + state.tokens.totalOutput;
   const budget = state.estimatedTokenBudget || 100000;
   const progress = Math.min(1, tokens / budget);
+  const progressPct = Math.floor(progress * 100);
 
-  const barX = IW - 55;
-  const barWidth = 35;
-  const barHeight = 4;
+  const barX = 80;
+  const barY = agentListY;
+  const barWidth = IW - 85;
+  const barHeight = 8;
 
   // Progress bar background
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.fillRect(barX, statusY - 2, barWidth, barHeight);
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(barX, barY, barWidth, barHeight);
 
-  // Progress fill with color coding
+  // Progress fill with gradient
   const progressColor = progress < 0.6 ? P.uiAccent : progress < 0.85 ? P.uiWarning : P.uiError;
-  ctx.fillStyle = progressColor;
-  ctx.fillRect(barX, statusY - 2, barWidth * progress, barHeight);
+  const progressGrad = ctx.createLinearGradient(barX, barY, barX + barWidth * progress, barY);
+  progressGrad.addColorStop(0, progressColor);
+  progressGrad.addColorStop(1, progress < 0.6 ? '#00cc6a' : progress < 0.85 ? '#cc8800' : '#cc3333');
+  ctx.fillStyle = progressGrad;
+  ctx.fillRect(barX, barY, barWidth * progress, barHeight);
 
-  // Token count text below bar
-  if (tokens > 0) {
+  // Progress percentage text
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 6px monospace';
+  ctx.fillText(`${progressPct}%`, barX + barWidth - 18, barY + 6);
+
+  // =========================================================================
+  // STATS PANEL (right side - like reference TZU/CPU/Token)
+  // =========================================================================
+  const statsX = 80;
+  const statsY = agentListY + 12;
+
+  // Stats boxes
+  const stats = [
+    { label: 'IN', value: formatTokens(state.tokens.totalInput), color: P.uiWarning },
+    { label: 'OUT', value: formatTokens(state.tokens.totalOutput), color: P.uiAccent },
+    { label: 'CACHE', value: formatTokens(state.tokens.cacheRead), color: '#9e4aff' },
+  ];
+
+  const statBoxW = 28;
+  for (let i = 0; i < stats.length; i++) {
+    const sx = statsX + i * (statBoxW + 2);
+    const stat = stats[i];
+
+    // Box background
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(sx, statsY, statBoxW, 18);
+
+    // Label
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '4px monospace';
+    ctx.fillText(stat.label, sx + 2, statsY + 5);
+
+    // Value
+    ctx.fillStyle = stat.color;
+    ctx.font = 'bold 7px monospace';
+    ctx.fillText(stat.value, sx + 2, statsY + 14);
+  }
+
+  // =========================================================================
+  // ONLINE STATUS (bottom)
+  // =========================================================================
+  const connected = state.connectionState === 'connected' || state.connectionState === 'authenticated';
+  const statusText = connected ? 'ONLINE' : 'OFFLINE';
+  const statusColor = connected ? P.uiAccent : P.uiError;
+
+  // Status dot
+  ctx.fillStyle = statusColor;
+  ctx.beginPath();
+  ctx.arc(8, IH - 6, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Status text
+  ctx.fillStyle = statusColor;
+  ctx.font = 'bold 6px monospace';
+  ctx.fillText(statusText, 14, IH - 3);
+
+  // Tool info (if active)
+  if (state.currentTool) {
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.font = '5px monospace';
-    const tokenText = tokens > 1000 ? `${(tokens / 1000).toFixed(1)}k` : `${tokens}`;
-    ctx.fillText(tokenText, barX + barWidth / 2 - 8, statusY + 6);
+    const toolText = state.currentTool.context || state.currentTool.detail;
+    ctx.fillText(toolText.slice(0, 25), 55, IH - 3);
   }
+}
+
+function formatTokens(tokens: number): string {
+  if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`;
+  return `${tokens}`;
 }

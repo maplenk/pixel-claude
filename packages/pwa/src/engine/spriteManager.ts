@@ -35,8 +35,19 @@ export async function initSprites(): Promise<void> {
     { name: 'limezu-adam-phone', url: '/sprites/limezu/Adam_phone_16x16.png', frames: createLimeZuPhoneFrames('adam_phone') },
     { name: 'limezu-alex-idle', url: '/sprites/limezu/Alex_idle_anim_16x16.png', frames: createLimeZuCharacterFrames('alex_idle') },
     { name: 'limezu-alex-sit', url: '/sprites/limezu/Alex_sit_16x16.png', frames: createLimeZuCharacterFrames('alex_sit') },
+    { name: 'limezu-alex-run', url: '/sprites/limezu/Alex_run_16x16.png', frames: createLimeZuCharacterFrames('alex_run') },
     { name: 'limezu-interiors', url: '/sprites/limezu/Interiors_free_16x16.png', frames: createLimeZuInteriorsFrames() },
     { name: 'limezu-room', url: '/sprites/limezu/Room_Builder_free_16x16.png', frames: createLimeZuRoomFrames() },
+    // Modern Office pack (paid)
+    { name: 'limezu-office', url: '/sprites/limezu/office/Modern_Office_16x16.png', frames: createModernOfficeFrames() },
+    { name: 'limezu-office-room', url: '/sprites/limezu/office/Room_Builder_Office_16x16.png', frames: createOfficeRoomFrames() },
+    // Premade characters for sub-agents (paid)
+    { name: 'limezu-char-01', url: '/sprites/limezu/Premade_Character_01.png', frames: createPremadeCharacterFrames('char01') },
+    { name: 'limezu-char-02', url: '/sprites/limezu/Premade_Character_02.png', frames: createPremadeCharacterFrames('char02') },
+    { name: 'limezu-char-03', url: '/sprites/limezu/Premade_Character_03.png', frames: createPremadeCharacterFrames('char03') },
+    { name: 'limezu-char-04', url: '/sprites/limezu/Premade_Character_04.png', frames: createPremadeCharacterFrames('char04') },
+    { name: 'limezu-char-05', url: '/sprites/limezu/Premade_Character_05.png', frames: createPremadeCharacterFrames('char05') },
+    { name: 'limezu-char-06', url: '/sprites/limezu/Premade_Character_06.png', frames: createPremadeCharacterFrames('char06') },
   ];
 
   // Load OpenGameArt sprites as fallback
@@ -479,4 +490,270 @@ export function getLimeZuFrame(animation: string, time: number, direction = 'dow
  */
 export function hasLimeZuSprites(): boolean {
   return getSprite('limezu-adam-idle') !== null;
+}
+
+/**
+ * Check if Modern Office sprites are loaded
+ */
+export function hasModernOfficeSprites(): boolean {
+  return getSprite('limezu-office') !== null;
+}
+
+/**
+ * Get a premade character sprite for sub-agents
+ */
+export function getPremadeCharacter(index: number): SpriteSheet | null {
+  const charIndex = (index % 6) + 1;
+  return getSprite(`limezu-char-0${charIndex}`);
+}
+
+// =============================================================================
+// MODERN OFFICE FRAME DEFINITIONS (PAID PACK)
+// =============================================================================
+
+/**
+ * Modern Office Tileset (256 x ~800 estimated)
+ * Based on the tileset image layout
+ */
+function createModernOfficeFrames(): FrameData[] {
+  const frames: FrameData[] = [];
+  const w = 16;
+  const h = 16;
+  const cols = 16;
+  const rows = 50; // Estimated rows based on file size
+
+  // Grid-based frames for precise access
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      frames.push({ name: `office_${row}_${col}`, x: col * w, y: row * h, w, h });
+    }
+  }
+
+  // ==========================================================================
+  // CUBICLE DIVIDERS (top rows - grey dividers)
+  // ==========================================================================
+  frames.push({ name: 'cubicle_top_left', x: 0, y: 0, w, h });
+  frames.push({ name: 'cubicle_top', x: 16, y: 0, w, h });
+  frames.push({ name: 'cubicle_top_right', x: 32, y: 0, w, h });
+  frames.push({ name: 'cubicle_left', x: 0, y: 16, w, h });
+  frames.push({ name: 'cubicle_right', x: 32, y: 16, w, h });
+  frames.push({ name: 'cubicle_bottom_left', x: 0, y: 32, w, h });
+  frames.push({ name: 'cubicle_bottom', x: 16, y: 32, w, h });
+  frames.push({ name: 'cubicle_bottom_right', x: 32, y: 32, w, h });
+
+  // ==========================================================================
+  // OFFICE CHAIRS (row 2-3 - various colors)
+  // ==========================================================================
+  frames.push({ name: 'chair_grey_back', x: 0, y: 48, w, h });
+  frames.push({ name: 'chair_grey_front', x: 16, y: 48, w, h });
+  frames.push({ name: 'chair_grey_left', x: 32, y: 48, w, h });
+  frames.push({ name: 'chair_grey_right', x: 48, y: 48, w, h });
+  frames.push({ name: 'chair_blue_back', x: 64, y: 48, w, h });
+  frames.push({ name: 'chair_blue_front', x: 80, y: 48, w, h });
+  frames.push({ name: 'chair_orange_back', x: 0, y: 64, w, h });
+  frames.push({ name: 'chair_orange_front', x: 16, y: 64, w, h });
+
+  // ==========================================================================
+  // DESKS & TABLES (row 4-6)
+  // ==========================================================================
+  frames.push({ name: 'desk_wood_2x1_left', x: 0, y: 80, w, h });
+  frames.push({ name: 'desk_wood_2x1_right', x: 16, y: 80, w, h });
+  frames.push({ name: 'desk_wood_front_left', x: 0, y: 96, w, h });
+  frames.push({ name: 'desk_wood_front_right', x: 16, y: 96, w, h });
+  frames.push({ name: 'desk_grey_2x1_left', x: 32, y: 80, w, h });
+  frames.push({ name: 'desk_grey_2x1_right', x: 48, y: 80, w, h });
+  frames.push({ name: 'desk_white_small', x: 64, y: 80, w, h: 32 });
+
+  // ==========================================================================
+  // COMPUTERS & MONITORS (row 3-4)
+  // ==========================================================================
+  frames.push({ name: 'monitor_modern', x: 128, y: 48, w, h });
+  frames.push({ name: 'monitor_screen', x: 144, y: 48, w, h });
+  frames.push({ name: 'laptop_open', x: 160, y: 48, w, h });
+  frames.push({ name: 'laptop_closed', x: 176, y: 48, w, h });
+  frames.push({ name: 'keyboard_modern', x: 128, y: 64, w, h });
+  frames.push({ name: 'mouse', x: 144, y: 64, w: 8, h: 8 });
+  frames.push({ name: 'dual_monitors', x: 128, y: 80, w: 32, h: 16 });
+
+  // ==========================================================================
+  // PLANTS (various rows)
+  // ==========================================================================
+  frames.push({ name: 'plant_small_pot', x: 64, y: 48, w, h });
+  frames.push({ name: 'plant_desk', x: 80, y: 48, w, h });
+  frames.push({ name: 'plant_tall', x: 224, y: 192, w, h: 32 });
+  frames.push({ name: 'plant_floor_large', x: 240, y: 192, w, h: 32 });
+
+  // ==========================================================================
+  // OFFICE SUPPLIES & DECORATIONS
+  // ==========================================================================
+  frames.push({ name: 'papers_stack', x: 192, y: 48, w, h });
+  frames.push({ name: 'folder', x: 208, y: 48, w, h });
+  frames.push({ name: 'coffee_mug', x: 224, y: 48, w, h });
+  frames.push({ name: 'pencil_cup', x: 240, y: 48, w, h });
+  frames.push({ name: 'phone_desk', x: 192, y: 64, w, h });
+  frames.push({ name: 'lamp_desk_modern', x: 208, y: 64, w, h: 32 });
+  frames.push({ name: 'picture_frame', x: 192, y: 80, w: 16, h: 16 });
+  frames.push({ name: 'award_plaque', x: 208, y: 80, w, h });
+  frames.push({ name: 'calendar', x: 224, y: 80, w, h });
+  frames.push({ name: 'clock_wall', x: 240, y: 80, w, h });
+
+  // ==========================================================================
+  // BOOKSHELVES & STORAGE (row 7-9)
+  // ==========================================================================
+  frames.push({ name: 'bookshelf_3x3', x: 0, y: 112, w: 48, h: 48 });
+  frames.push({ name: 'bookshelf_2x3', x: 48, y: 112, w: 32, h: 48 });
+  frames.push({ name: 'filing_cabinet_2', x: 80, y: 112, w: 16, h: 32 });
+  frames.push({ name: 'filing_cabinet_3', x: 96, y: 112, w: 16, h: 48 });
+
+  // ==========================================================================
+  // WHITEBOARDS & PRESENTATION (row 5-6)
+  // ==========================================================================
+  frames.push({ name: 'whiteboard_3x2', x: 112, y: 80, w: 48, h: 32 });
+  frames.push({ name: 'corkboard_2x2', x: 160, y: 80, w: 32, h: 32 });
+  frames.push({ name: 'presentation_screen', x: 112, y: 112, w: 48, h: 48 });
+
+  // ==========================================================================
+  // SERVER RACK & ELECTRONICS (various rows)
+  // ==========================================================================
+  frames.push({ name: 'server_rack_3x4', x: 224, y: 112, w: 32, h: 64 });
+  frames.push({ name: 'printer', x: 192, y: 112, w: 32, h: 32 });
+  frames.push({ name: 'scanner', x: 192, y: 144, w: 32, h: 16 });
+
+  // ==========================================================================
+  // BREAK ROOM ITEMS
+  // ==========================================================================
+  frames.push({ name: 'water_cooler', x: 160, y: 160, w: 16, h: 32 });
+  frames.push({ name: 'vending_machine', x: 176, y: 160, w: 32, h: 48 });
+  frames.push({ name: 'coffee_machine', x: 208, y: 160, w: 16, h: 32 });
+  frames.push({ name: 'microwave', x: 224, y: 160, w: 16, h: 16 });
+  frames.push({ name: 'fridge', x: 240, y: 160, w: 16, h: 32 });
+
+  // ==========================================================================
+  // COUCHES & SEATING (row 10-11)
+  // ==========================================================================
+  frames.push({ name: 'couch_grey_3x1', x: 0, y: 160, w: 48, h: 32 });
+  frames.push({ name: 'couch_blue_3x1', x: 48, y: 160, w: 48, h: 32 });
+  frames.push({ name: 'armchair_grey', x: 96, y: 160, w: 16, h: 32 });
+  frames.push({ name: 'armchair_blue', x: 112, y: 160, w: 16, h: 32 });
+  frames.push({ name: 'coffee_table', x: 128, y: 176, w: 32, h: 16 });
+
+  // ==========================================================================
+  // AC UNIT & CEILING (top area)
+  // ==========================================================================
+  frames.push({ name: 'ac_unit', x: 128, y: 0, w: 48, h: 16 });
+  frames.push({ name: 'ceiling_light', x: 176, y: 0, w: 32, h: 16 });
+  frames.push({ name: 'vent', x: 208, y: 0, w: 16, h: 16 });
+
+  return frames;
+}
+
+/**
+ * Office Room Builder Frames
+ */
+function createOfficeRoomFrames(): FrameData[] {
+  const frames: FrameData[] = [];
+  const w = 16;
+  const h = 16;
+  const cols = 16;
+  const rows = 16;
+
+  // Grid-based frames
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      frames.push({ name: `officeroom_${row}_${col}`, x: col * w, y: row * h, w, h });
+    }
+  }
+
+  // Office-specific wall panels
+  frames.push({ name: 'wall_office_grey_top', x: 0, y: 0, w, h });
+  frames.push({ name: 'wall_office_grey_bottom', x: 0, y: 16, w, h });
+  frames.push({ name: 'wall_office_blue_top', x: 16, y: 0, w, h });
+  frames.push({ name: 'wall_office_blue_bottom', x: 16, y: 16, w, h });
+
+  // Office floor tiles
+  frames.push({ name: 'floor_office_carpet', x: 128, y: 64, w, h });
+  frames.push({ name: 'floor_office_tile', x: 144, y: 64, w, h });
+  frames.push({ name: 'floor_office_wood', x: 160, y: 64, w, h });
+
+  return frames;
+}
+
+/**
+ * Premade Character Frames
+ * Full animation sheets with idle, run, sit, etc.
+ * Layout: Multiple rows for different animations
+ */
+function createPremadeCharacterFrames(prefix: string): FrameData[] {
+  const frames: FrameData[] = [];
+  const w = 16;
+  const h = 32;
+
+  // Row 0: Idle animation (down) - 4 frames
+  for (let i = 0; i < 4; i++) {
+    frames.push({ name: `${prefix}_idle_down_${i}`, x: i * w, y: 0, w, h });
+  }
+
+  // Row 1: Run animation (down) - 6 frames typically
+  for (let i = 0; i < 6; i++) {
+    frames.push({ name: `${prefix}_run_down_${i}`, x: i * w, y: h, w, h });
+  }
+
+  // Row 2: Idle animation (left/right) - 4 frames each
+  for (let i = 0; i < 4; i++) {
+    frames.push({ name: `${prefix}_idle_left_${i}`, x: i * w, y: h * 2, w, h });
+  }
+  for (let i = 0; i < 4; i++) {
+    frames.push({ name: `${prefix}_idle_right_${i}`, x: (i + 4) * w, y: h * 2, w, h });
+  }
+
+  // Row 3: Run animation (left/right)
+  for (let i = 0; i < 6; i++) {
+    frames.push({ name: `${prefix}_run_left_${i}`, x: i * w, y: h * 3, w, h });
+  }
+  for (let i = 0; i < 6; i++) {
+    frames.push({ name: `${prefix}_run_right_${i}`, x: (i + 6) * w, y: h * 3, w, h });
+  }
+
+  // Row 4: Idle animation (up) - 4 frames
+  for (let i = 0; i < 4; i++) {
+    frames.push({ name: `${prefix}_idle_up_${i}`, x: i * w, y: h * 4, w, h });
+  }
+
+  // Row 5: Run animation (up)
+  for (let i = 0; i < 6; i++) {
+    frames.push({ name: `${prefix}_run_up_${i}`, x: i * w, y: h * 5, w, h });
+  }
+
+  // Row 6: Sit animation
+  for (let i = 0; i < 6; i++) {
+    frames.push({ name: `${prefix}_sit_${i}`, x: i * w, y: h * 6, w, h });
+  }
+
+  // Convenience aliases
+  frames.push({ name: `${prefix}_idle_0`, x: 0, y: 0, w, h });
+  frames.push({ name: `${prefix}_idle_1`, x: w, y: 0, w, h });
+  frames.push({ name: `${prefix}_run_0`, x: 0, y: h, w, h });
+  frames.push({ name: `${prefix}_run_1`, x: w, y: h, w, h });
+
+  return frames;
+}
+
+/**
+ * Get premade character animation frame
+ */
+export function getPremadeCharFrame(charIndex: number, animation: string, time: number, direction = 'down'): string {
+  const prefix = `char0${(charIndex % 6) + 1}`;
+
+  if (animation === 'idle') {
+    const frameIndex = Math.floor(time / 200) % 4;
+    return `${prefix}_idle_${direction}_${frameIndex}`;
+  } else if (animation === 'run') {
+    const frameIndex = Math.floor(time / 100) % 6;
+    return `${prefix}_run_${direction}_${frameIndex}`;
+  } else if (animation === 'sit') {
+    const frameIndex = Math.floor(time / 300) % 6;
+    return `${prefix}_sit_${frameIndex}`;
+  }
+
+  return `${prefix}_idle_0`;
 }
