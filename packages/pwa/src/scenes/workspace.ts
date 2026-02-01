@@ -1,9 +1,10 @@
 import type { Mode, Activity, ToolCategory } from '../types';
 import type { AppState, AgentInfo } from '../store/state';
-import { ART_CONFIG } from '../types';
+import { ART_CONFIG, TOOL_EFFECT_MAP } from '../types';
 import { clearCanvas } from '../engine/canvas';
 import { getSprite, hasSprites, getModeFrame, getLimeZuFrame, hasLimeZuSprites } from '../engine/spriteManager';
 import { drawSpriteFrame } from '../engine/sprites';
+import { drawToolEffects, startToolEffect, stopToolEffect } from '../engine/effects';
 
 // Portrait mode: 180x320
 const { internalWidth: IW, internalHeight: IH } = ART_CONFIG;
@@ -141,6 +142,10 @@ const POSITIONS = {
 // =============================================================================
 // MAIN DRAW FUNCTION
 // =============================================================================
+
+// Track last tool for effect triggering
+let lastToolUseId: string | null = null;
+
 export function drawWorkspace(
   ctx: CanvasRenderingContext2D,
   state: AppState,
@@ -169,18 +174,48 @@ export function drawWorkspace(
   updateCharacterPosition(target);
   drawCharacter(ctx, time, state, charX, charY, true);
 
-  // Draw sub-agents
-  drawSubAgents(ctx, time, state);
+  // 6. Handle tool effects
+  handleToolEffects(state);
 
-  // 6. Effects
+  // 7. Draw sub-agents with walk-in animation
+  updateAndDrawSubAgents(ctx, time, state);
+
+  // 8. Draw tool/skill effects near character
+  drawToolEffects(ctx, time);
+
+  // 9. Effects
   drawLighting(ctx, state.mode);
   if (state.mode === 'celebrate') {
     drawConfetti(ctx, time);
   }
 
-  // 7. UI overlay
-  drawHeader(ctx, state);
+  // 10. UI overlay
+  drawHeader(ctx, state, time);
   drawFooter(ctx, state, time);
+}
+
+/**
+ * Handle tool effect triggering based on state changes
+ */
+function handleToolEffects(state: AppState): void {
+  if (state.currentTool) {
+    if (state.currentTool.toolUseId !== lastToolUseId) {
+      // New tool started - determine if it's a skill
+      const isSkill = state.currentTool.detail?.toLowerCase().includes('skill') ||
+                      state.currentTool.context?.toLowerCase().includes('/');
+      const effectType = isSkill ? 'skill' : TOOL_EFFECT_MAP[state.currentTool.category];
+
+      // Start effect near character
+      startToolEffect(effectType, charX, charY, state.currentTool.toolUseId);
+      lastToolUseId = state.currentTool.toolUseId;
+    }
+
+    if (state.currentTool.status === 'completed' || state.currentTool.status === 'error') {
+      stopToolEffect(state.currentTool.toolUseId);
+    }
+  } else if (lastToolUseId) {
+    lastToolUseId = null;
+  }
 }
 
 // =============================================================================
@@ -845,22 +880,66 @@ function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
 }
 
 // =============================================================================
-// SUB-AGENTS
+// SUB-AGENTS WITH WALK-IN ANIMATION
 // =============================================================================
-function drawSubAgents(ctx: CanvasRenderingContext2D, t: number, state: AppState): void {
-  let idx = 0;
-  for (const [agentId, agent] of state.agents) {
-    const ax = 30 + idx * 25;
-    const ay = SCENE_TOP + SCENE_HEIGHT * 0.85;
 
-    // Mini character
-    drawMiniCharacter(ctx, ax, ay, agent, t);
-    idx++;
+// Character color tints for variety
+const CHARACTER_TINTS = [
+  null,                    // Default (no tint)
+  'hue-rotate(180deg)',    // Cyan
+  'hue-rotate(300deg)',    // Pink
+  'hue-rotate(45deg)',     // Gold
+  'hue-rotate(120deg)',    // Green
+  'hue-rotate(270deg)',    // Purple
+];
+
+const WALK_SPEED = 0.8;
+
+function updateAndDrawSubAgents(ctx: CanvasRenderingContext2D, t: number, state: AppState): void {
+  for (const [agentId, agent] of state.agents) {
+    // Update position based on animation state
+    updateAgentPosition(agent);
+
+    // Draw the mini character at its current position
+    drawMiniCharacter(ctx, agent.x, agent.y, agent, t);
   }
+}
+
+function updateAgentPosition(agent: AgentInfo): void {
+  const dx = agent.targetX - agent.x;
+  const dy = agent.targetY - agent.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist > WALK_SPEED) {
+    // Move towards target
+    agent.x += (dx / dist) * WALK_SPEED;
+    agent.y += (dy / dist) * WALK_SPEED;
+  } else {
+    // Arrived at target
+    agent.x = agent.targetX;
+    agent.y = agent.targetY;
+
+    // Update animation state
+    if (agent.animState === 'walking_in') {
+      agent.animState = 'active';
+    } else if (agent.animState === 'walking_out') {
+      agent.animState = 'exited';
+    }
+  }
+}
+
+// Legacy function kept for compatibility
+function drawSubAgents(ctx: CanvasRenderingContext2D, t: number, state: AppState): void {
+  updateAndDrawSubAgents(ctx, t, state);
 }
 
 function drawMiniCharacter(ctx: CanvasRenderingContext2D, x: number, y: number, agent: AgentInfo, t: number): void {
   const scale = 0.6;
+  const isWalking = agent.animState === 'walking_in' || agent.animState === 'walking_out';
+
+  // Determine facing direction based on movement
+  const movingRight = agent.targetX > agent.x;
+  const direction = isWalking ? (movingRight ? 'right' : 'left') : 'down';
 
   // Shadow
   ctx.fillStyle = P.shadow;
@@ -868,20 +947,30 @@ function drawMiniCharacter(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.ellipse(x, y + 1, 4, 1.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Try to use Alex sprites for sub-agents (different character than main Adam)
-  const alexIdle = getSprite('limezu-alex-idle');
-  const alexSit = getSprite('limezu-alex-sit');
+  // Apply color tint for character variety
+  const tint = CHARACTER_TINTS[agent.characterIndex % CHARACTER_TINTS.length];
 
-  if (alexIdle || alexSit) {
-    // Use Alex LimeZu sprites for sub-agents
-    const sheet = agent.status === 'running' ? alexIdle : (alexSit || alexIdle);
-    const animPrefix = agent.status === 'running' ? 'alex_idle' : 'alex_sit';
+  // Try to use Alex sprites for sub-agents
+  const alexIdle = getSprite('limezu-alex-idle');
+  const alexRun = getSprite('limezu-alex-run');
+
+  if (alexIdle || alexRun) {
+    // Choose sprite based on walking state
+    const sheet = isWalking && alexRun ? alexRun : alexIdle;
+    const animPrefix = isWalking ? 'alex_run' : 'alex_idle';
 
     if (sheet) {
-      const frameName = getLimeZuFrame(animPrefix, t, 'down');
+      const frameName = getLimeZuFrame(animPrefix, t, direction);
+
       ctx.save();
       ctx.translate(x - 8 * scale, y - 32 * scale);
       ctx.scale(scale, scale);
+
+      // Apply tint filter if available
+      if (tint) {
+        ctx.filter = tint;
+      }
+
       drawSpriteFrame(ctx, sheet, frameName, 0, 0);
       ctx.restore();
     }
@@ -890,16 +979,18 @@ function drawMiniCharacter(ctx: CanvasRenderingContext2D, x: number, y: number, 
     const charSheet = getSprite('characters');
     if (charSheet) {
       const frameIdx = Math.floor(t / 300) % 2;
-      const frameName = agent.status === 'running' ? `walk_${frameIdx}` : `idle_${frameIdx}`;
+      const frameName = isWalking ? `walk_${frameIdx}` : `idle_${frameIdx}`;
 
       ctx.save();
       ctx.translate(x - 8, y - 16);
       ctx.scale(scale, scale);
+      if (tint) ctx.filter = tint;
       drawSpriteFrame(ctx, charSheet, frameName, 0, 0);
       ctx.restore();
     } else {
-      // Fallback: Procedural mini character
-      ctx.fillStyle = agent.status === 'error' ? P.uiError : agent.status === 'completed' ? P.uiAccent : P.shirtBlue;
+      // Fallback: Procedural mini character with tinted color
+      const baseColor = agent.status === 'error' ? P.uiError : agent.status === 'completed' ? P.uiAccent : P.shirtBlue;
+      ctx.fillStyle = baseColor;
       ctx.fillRect(x - 3 * scale, y - 12 * scale, 6 * scale, 8 * scale);
 
       ctx.fillStyle = P.hairDark;
@@ -908,21 +999,22 @@ function drawMiniCharacter(ctx: CanvasRenderingContext2D, x: number, y: number, 
   }
 
   // Status indicator (always show)
+  const indicatorY = y - 22 * scale;
   if (agent.status === 'running') {
     const pulse = Math.sin(t / 200) * 0.3 + 0.7;
     ctx.fillStyle = `rgba(0,255,136,${pulse})`;
     ctx.beginPath();
-    ctx.arc(x, y - 22 * scale, 2, 0, Math.PI * 2);
+    ctx.arc(x, indicatorY, 2, 0, Math.PI * 2);
     ctx.fill();
   } else if (agent.status === 'completed') {
     ctx.fillStyle = P.uiAccent;
     ctx.beginPath();
-    ctx.arc(x, y - 22 * scale, 2, 0, Math.PI * 2);
+    ctx.arc(x, indicatorY, 2, 0, Math.PI * 2);
     ctx.fill();
   } else if (agent.status === 'error') {
     ctx.fillStyle = P.uiError;
     ctx.beginPath();
-    ctx.arc(x, y - 22 * scale, 2, 0, Math.PI * 2);
+    ctx.arc(x, indicatorY, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -963,7 +1055,7 @@ function drawConfetti(ctx: CanvasRenderingContext2D, t: number): void {
 // =============================================================================
 // UI OVERLAYS
 // =============================================================================
-function drawHeader(ctx: CanvasRenderingContext2D, state: AppState): void {
+function drawHeader(ctx: CanvasRenderingContext2D, state: AppState, time: number): void {
   // Background
   ctx.fillStyle = P.uiBg;
   ctx.fillRect(0, 0, IW, HEADER_HEIGHT);
@@ -984,12 +1076,22 @@ function drawHeader(ctx: CanvasRenderingContext2D, state: AppState): void {
   ctx.font = 'bold 8px monospace';
   ctx.fillText('PixelHQ', 18, HEADER_HEIGHT / 2 + 3);
 
-  // Session/project name
-  if (state.session) {
+  // Session timer (right side)
+  if (state.sessionStartTime) {
+    const elapsed = Date.now() - state.sessionStartTime;
+    const minutes = Math.floor(elapsed / 60000);
+    const seconds = Math.floor((elapsed % 60000) / 1000);
+    const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '7px monospace';
+    ctx.fillText(timeStr, IW - 28, HEADER_HEIGHT / 2 + 2);
+  } else if (state.session) {
+    // Fallback: show project name
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.font = '6px monospace';
     const projectName = state.session.project.split('/').pop() || state.session.project;
-    ctx.fillText(projectName.slice(0, 12), IW - 60, HEADER_HEIGHT / 2 + 2);
+    ctx.fillText(projectName.slice(0, 8), IW - 45, HEADER_HEIGHT / 2 + 2);
   }
 }
 
@@ -1080,12 +1182,29 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: AppState, t: number): 
     ctx.fillText(btn.label, bx + 8, btnY + 19);
   }
 
-  // Token counter (top right of footer)
+  // Token progress bar (top right of footer)
   const tokens = state.tokens.totalInput + state.tokens.totalOutput;
+  const budget = state.estimatedTokenBudget || 100000;
+  const progress = Math.min(1, tokens / budget);
+
+  const barX = IW - 55;
+  const barWidth = 35;
+  const barHeight = 4;
+
+  // Progress bar background
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
+  ctx.fillRect(barX, statusY - 2, barWidth, barHeight);
+
+  // Progress fill with color coding
+  const progressColor = progress < 0.6 ? P.uiAccent : progress < 0.85 ? P.uiWarning : P.uiError;
+  ctx.fillStyle = progressColor;
+  ctx.fillRect(barX, statusY - 2, barWidth * progress, barHeight);
+
+  // Token count text below bar
   if (tokens > 0) {
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.font = '5px monospace';
     const tokenText = tokens > 1000 ? `${(tokens / 1000).toFixed(1)}k` : `${tokens}`;
-    ctx.fillText(`${tokenText} tok`, IW - 35, statusY + 2);
+    ctx.fillText(tokenText, barX + barWidth / 2 - 8, statusY + 6);
   }
 }

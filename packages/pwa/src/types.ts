@@ -30,6 +30,27 @@ export type ToolCategory =
   | 'USER_INPUT'
   | 'OTHER';
 
+// Tool visual effect types
+export type ToolEffectType =
+  | 'skill'      // Skill invocation - gold sparkle effect
+  | 'file_read'  // Reading files - blue document effect
+  | 'file_write' // Writing files - green pencil effect
+  | 'terminal'   // Running commands - orange terminal pulse
+  | 'browser'    // Web operations - cyan globe effect
+  | 'agent'      // Sub-agent spawn - purple portal effect
+  | 'default';   // Generic tool - gear effect
+
+// Map ToolCategory to visual effect
+export const TOOL_EFFECT_MAP: Record<ToolCategory, ToolEffectType> = {
+  FILE_READ: 'file_read',
+  FILE_WRITE: 'file_write',
+  TERMINAL: 'terminal',
+  BROWSER: 'browser',
+  AGENT: 'agent',
+  USER_INPUT: 'default',
+  OTHER: 'default',
+};
+
 // Token usage tracking
 export interface TokenUsage {
   input: number;

@@ -24,11 +24,24 @@ export interface CurrentTool {
   toolUseId: string;
 }
 
-// Agent info
+// Agent animation state
+export type AgentAnimState = 'walking_in' | 'active' | 'walking_out' | 'exited';
+
+// Agent info with animation
 export interface AgentInfo {
   agentId: string;
   role: string;
   status: 'running' | 'completed' | 'error';
+  // Animation state
+  animState: AgentAnimState;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  // Character variety (0-5 for different tints)
+  characterIndex: number;
+  // Spawn timestamp
+  spawnedAt: number;
 }
 
 // Session info
@@ -69,6 +82,10 @@ export interface AppState {
   // Session info
   session: SessionInfo | null;
 
+  // Session timing
+  sessionStartTime: number | null;
+  estimatedTokenBudget: number;
+
   // Last error
   lastError: LastError | null;
 
@@ -85,6 +102,9 @@ export interface AppState {
 
 type Listener = (state: AppState) => void;
 
+// Counter for assigning unique character indices
+let agentCounter = 0;
+
 class Store {
   private state: AppState = {
     mode: 'idle',
@@ -92,6 +112,8 @@ class Store {
     currentTool: null,
     agents: new Map(),
     session: null,
+    sessionStartTime: null,
+    estimatedTokenBudget: 100000,
     lastError: null,
     tokens: { totalInput: 0, totalOutput: 0, cacheRead: 0, cacheWrite: 0 },
     connectionState: 'disconnected',
@@ -167,13 +189,16 @@ class Store {
           project: event.project || 'Unknown',
           model: event.model,
         },
+        sessionStartTime: Date.now(),
         activity: 'idle',
         mode: 'idle',
+        tokens: { totalInput: 0, totalOutput: 0, cacheRead: 0, cacheWrite: 0 },
       };
     } else if (event.action === 'ended') {
       this.state = {
         ...this.state,
         session: null,
+        sessionStartTime: null,
         activity: 'idle',
         mode: 'celebrate',
       };
@@ -247,25 +272,48 @@ class Store {
     const agents = new Map(this.state.agents);
 
     if (event.action === 'spawned' && event.agentId) {
+      // Calculate spawn position (off-screen, alternating left/right)
+      const slotIndex = agents.size;
+      const enterFromLeft = slotIndex % 2 === 0;
+      const startX = enterFromLeft ? -20 : 200; // Off-screen
+      const startY = 220; // Bottom area of scene
+
+      // Target position in the workspace
+      const targetX = 25 + (slotIndex % 6) * 25;
+      const targetY = 200 + (slotIndex % 3) * 8; // Slight Y variation
+
       agents.set(event.agentId, {
         agentId: event.agentId,
         role: event.agentRole || 'agent',
         status: 'running',
+        animState: 'walking_in',
+        x: startX,
+        y: startY,
+        targetX,
+        targetY,
+        characterIndex: agentCounter % 6,
+        spawnedAt: Date.now(),
       });
+      agentCounter++;
     } else if ((event.action === 'completed' || event.action === 'error') && event.agentId) {
       const agent = agents.get(event.agentId);
       if (agent) {
+        // Start walk-out animation
+        const exitX = agent.x < 90 ? -20 : 200; // Exit to nearest edge
         agents.set(event.agentId, {
           ...agent,
           status: event.action === 'completed' ? 'completed' : 'error',
+          animState: 'walking_out',
+          targetX: exitX,
+          targetY: agent.y,
         });
-        // Remove agent after delay
+        // Remove agent after walk-out delay
         setTimeout(() => {
           const currentAgents = new Map(this.state.agents);
           currentAgents.delete(event.agentId!);
           this.state = { ...this.state, agents: currentAgents };
           this.notify();
-        }, 2000);
+        }, 3000); // Longer delay for walk-out
       }
     }
 
