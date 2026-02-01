@@ -10,6 +10,12 @@ export interface CanvasContext {
 // Track current DPR for resize handling
 let currentDpr = 1;
 
+// Double-buffering: offscreen canvas to prevent flickering
+let offscreenCanvas: HTMLCanvasElement | null = null;
+let offscreenCtx: CanvasRenderingContext2D | null = null;
+let displayCanvas: HTMLCanvasElement | null = null;
+let displayCtx: CanvasRenderingContext2D | null = null;
+
 export function setupCanvas(canvasId: string): CanvasContext {
   const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
   if (!canvas) {
@@ -25,14 +31,22 @@ export function setupCanvas(canvasId: string): CanvasContext {
   const dpr = window.devicePixelRatio || 1;
   currentDpr = dpr;
 
-  // Scale canvas for DPR (actual pixel dimensions)
+  // Set up display canvas (visible)
+  displayCanvas = canvas;
+  displayCtx = ctx;
   canvas.width = ART_CONFIG.internalWidth * dpr;
   canvas.height = ART_CONFIG.internalHeight * dpr;
 
-  // Scale context to draw at internal resolution
-  ctx.scale(dpr, dpr);
+  // Create offscreen canvas for double-buffering (prevents flickering)
+  offscreenCanvas = document.createElement('canvas');
+  offscreenCanvas.width = ART_CONFIG.internalWidth;
+  offscreenCanvas.height = ART_CONFIG.internalHeight;
+  offscreenCtx = offscreenCanvas.getContext('2d');
+  if (offscreenCtx) {
+    offscreenCtx.imageSmoothingEnabled = false;
+  }
 
-  // Disable image smoothing for crisp pixels (must be after scale)
+  // Disable image smoothing on display canvas
   ctx.imageSmoothingEnabled = false;
 
   // Calculate initial display scale
@@ -49,14 +63,14 @@ export function setupCanvas(canvasId: string): CanvasContext {
       currentDpr = newDpr;
       canvas.width = ART_CONFIG.internalWidth * newDpr;
       canvas.height = ART_CONFIG.internalHeight * newDpr;
-      ctx.scale(newDpr, newDpr);
       ctx.imageSmoothingEnabled = false;
     }
 
     applyScale(canvas, newScale);
   });
 
-  return { canvas, ctx, scale, dpr };
+  // Return the offscreen context for drawing (prevents flickering)
+  return { canvas, ctx: offscreenCtx!, scale, dpr };
 }
 
 function calculateScale(): number {
@@ -80,4 +94,20 @@ function applyScale(canvas: HTMLCanvasElement, scale: number): void {
 export function clearCanvas(ctx: CanvasRenderingContext2D, color = '#1a1a2e'): void {
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, ART_CONFIG.internalWidth, ART_CONFIG.internalHeight);
+}
+
+/**
+ * Copy offscreen buffer to display canvas (call at end of each frame)
+ * This is what eliminates flickering - we only show complete frames
+ */
+export function presentFrame(): void {
+  if (!displayCtx || !offscreenCanvas || !displayCanvas) return;
+
+  // Clear and copy the completed frame to display
+  displayCtx.imageSmoothingEnabled = false;
+  displayCtx.drawImage(
+    offscreenCanvas,
+    0, 0, ART_CONFIG.internalWidth, ART_CONFIG.internalHeight,
+    0, 0, displayCanvas.width, displayCanvas.height
+  );
 }

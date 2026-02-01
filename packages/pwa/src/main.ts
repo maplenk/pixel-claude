@@ -1,4 +1,4 @@
-import { setupCanvas, clearCanvas } from './engine/canvas';
+import { setupCanvas, clearCanvas, presentFrame } from './engine/canvas';
 import { drawOffice } from './scenes/office';
 import { drawWorkspace } from './scenes/workspace';
 import { WSClient, BridgeClient } from './net/ws';
@@ -118,13 +118,15 @@ async function init() {
     updateConnectionStatus(state.connectionState);
   });
 
-  // Start render loop
+  // Start render loop with double-buffering
   requestAnimationFrame(function loop(time) {
     if (useWorkspaceScene) {
       drawWorkspace(ctx, currentState, time);
     } else {
       drawOffice(ctx, currentMode, time);
     }
+    // Present the completed frame (prevents flickering)
+    presentFrame();
     requestAnimationFrame(loop);
   });
 
