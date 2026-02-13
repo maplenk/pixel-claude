@@ -49,6 +49,7 @@ export function drawOffice(ctx: CanvasRenderingContext2D, mode: Mode, time: numb
   else if (mode === 'running') { tx = potPos.x; ty = potPos.y; }
   else if (mode === 'celebrate') { tx = counterPos.x; ty = counterPos.y - 6; }
   else if (mode === 'error') { tx = prepPos.x; ty = prepPos.y; }
+  else if (mode === 'input_needed') { tx = counterPos.x; ty = counterPos.y - 6; }
   else { tx = IW * 0.5; ty = IH * 0.5; }
 
   // Move character
@@ -62,6 +63,11 @@ export function drawOffice(ctx: CanvasRenderingContext2D, mode: Mode, time: numb
   drawLighting(ctx, mode);
   vignette(ctx);
   foreground(ctx, time);
+
+  // Input needed screen pulse
+  if (mode === 'input_needed') {
+    drawInputPulse(ctx, time);
+  }
 
   // UI
   drawStatus(ctx, mode);
@@ -544,6 +550,7 @@ function ninjaCook(ctx: CanvasRenderingContext2D, x: number, y: number, t: numbe
     else if (mode === 'running') { arm = Math.sin(t / 200) * 2; }
     else if (mode === 'thinking') { arm = -1; }
     else if (mode === 'celebrate') { bob = -anim * 0.5; arm = -1.5; }
+    else if (mode === 'input_needed') { bob = Math.sin(t / 300) * 1; arm = -2; }
     else if (mode === 'error') { bob = anim % 2 * 1.5; }
   }
 
@@ -631,6 +638,35 @@ function ninjaCook(ctx: CanvasRenderingContext2D, x: number, y: number, t: numbe
     ctx.fillStyle = P.scrollAccent;
     ctx.font = 'bold 5px monospace';
     ctx.fillText('?', x + 8, by - 24);
+  }
+
+  if (mode === 'input_needed' && !walking) {
+    // Pulsing attention bubble
+    const pulse = 0.6 + Math.sin(t / 200) * 0.4;
+    const bubbleY = by - 28;
+
+    // Glow behind bubble
+    ctx.fillStyle = `rgba(0,217,255,${pulse * 0.3})`;
+    ctx.beginPath(); ctx.arc(x, bubbleY, 12, 0, Math.PI * 2); ctx.fill();
+
+    // Speech bubble
+    ctx.fillStyle = `rgba(0,217,255,${0.8 + Math.sin(t / 200) * 0.2})`;
+    ctx.beginPath(); ctx.arc(x, bubbleY, 7, 0, Math.PI * 2); ctx.fill();
+
+    // Bubble trail
+    ctx.fillStyle = 'rgba(0,217,255,0.6)';
+    ctx.beginPath(); ctx.arc(x - 3, by - 21, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x - 2, by - 19, 1, 0, Math.PI * 2); ctx.fill();
+
+    // Bell icon inside bubble
+    ctx.fillStyle = '#1a1a2e';
+    // Bell body
+    ctx.fillRect(x - 3, bubbleY - 3, 6, 5);
+    ctx.fillRect(x - 4, bubbleY + 1, 8, 1);
+    // Bell clapper
+    ctx.fillRect(x, bubbleY + 3, 1, 2);
+    // Bell top
+    ctx.fillRect(x, bubbleY - 5, 1, 2);
   }
 }
 
@@ -731,6 +767,33 @@ function foreground(ctx: CanvasRenderingContext2D, t: number): void {
   ctx.restore();
 }
 
+function drawInputPulse(ctx: CanvasRenderingContext2D, t: number): void {
+  const pulse = 0.15 + Math.sin(t / 250) * 0.15;
+
+  // Pulsing cyan border glow
+  ctx.save();
+  ctx.strokeStyle = `rgba(0,217,255,${pulse})`;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(1, 1, IW - 2, IH - 2);
+
+  // Corner accents (brighter)
+  ctx.fillStyle = `rgba(0,217,255,${pulse * 2})`;
+  const cs = 6;
+  ctx.fillRect(0, 0, cs, 2); ctx.fillRect(0, 0, 2, cs);
+  ctx.fillRect(IW - cs, 0, cs, 2); ctx.fillRect(IW - 2, 0, 2, cs);
+  ctx.fillRect(0, IH - 2, cs, 2); ctx.fillRect(0, IH - cs, 2, cs);
+  ctx.fillRect(IW - cs, IH - 2, cs, 2); ctx.fillRect(IW - 2, IH - cs, 2, cs);
+
+  // "INPUT NEEDED" text banner at top
+  const bannerAlpha = 0.7 + Math.sin(t / 300) * 0.3;
+  ctx.fillStyle = `rgba(0,20,40,${bannerAlpha * 0.8})`;
+  ctx.fillRect(IW / 2 - 36, IH - 26, 72, 10);
+  ctx.fillStyle = `rgba(0,217,255,${bannerAlpha})`;
+  ctx.font = 'bold 6px monospace';
+  ctx.fillText('INPUT NEEDED', IW / 2 - 32, IH - 19);
+  ctx.restore();
+}
+
 function drawStatus(ctx: CanvasRenderingContext2D, mode: Mode): void {
   const x = 4, y = IH - 14, w = 45, h = 10;
 
@@ -747,6 +810,6 @@ function drawStatus(ctx: CanvasRenderingContext2D, mode: Mode): void {
 
   ctx.fillStyle = '#f2c14e';
   ctx.font = '5px monospace';
-  const names: Record<Mode, string> = { idle: 'IDLE', typing: 'PREP', running: 'COOK', thinking: 'READ', celebrate: 'DONE', error: 'OOPS' };
+  const names: Record<Mode, string> = { idle: 'IDLE', typing: 'PREP', running: 'COOK', thinking: 'READ', celebrate: 'DONE', error: 'OOPS', input_needed: 'WAIT' };
   ctx.fillText(names[mode], x + 8, y + 7);
 }

@@ -31,3 +31,7 @@ pnpm-debug.log*
 dev-dist/
 sw.js
 workbox-*.js
+
+# Capacitor native projects
+ios/
+android/

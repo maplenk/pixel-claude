@@ -71,9 +71,11 @@ export class StateMachine {
       // Fall back to idle or thinking based on time
     }
 
-    // Don't override celebrate or error states while they're active
-    if (this.currentMode === 'celebrate' || this.currentMode === 'error') {
-      if (this.modeExpiresAt && now < this.modeExpiresAt) {
+    // Don't override celebrate, error, or input_needed states while they're active
+    if (this.currentMode === 'celebrate' || this.currentMode === 'error' || this.currentMode === 'input_needed') {
+      // If there's a TTL and it hasn't expired, stay in this mode
+      // If there's no TTL (like input_needed), persist until a new event changes it
+      if (!this.modeExpiresAt || now < this.modeExpiresAt) {
         return;
       }
     }

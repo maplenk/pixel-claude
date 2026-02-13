@@ -7,93 +7,237 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="apple-touch-icon" href="/favicon.svg">
-  <title>PixelHQ</title>
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <title>Claude Events</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #1a1a2e;
-      touch-action: none;
-    }
-    #app {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    canvas {
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-    }
-    #connection-status {
-      position: fixed;
-      top: env(safe-area-inset-top, 10px);
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-family: -apple-system, system-ui, sans-serif;
-      font-size: 12px;
-      z-index: 100;
-      transition: opacity 0.3s, transform 0.3s;
-    }
-    #connection-status.connected {
-      background: rgba(0, 255, 136, 0.2);
-      color: #00ff88;
-    }
-    #connection-status.disconnected {
-      background: rgba(255, 100, 100, 0.2);
-      color: #ff6464;
-    }
-    #connection-status.hidden {
-      opacity: 0;
-      transform: translateX(-50%) translateY(-20px);
-    }
-    #pair-prompt {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: #fff;
-      font-family: -apple-system, system-ui, sans-serif;
-      text-align: center;
-      padding: 20px;
-      z-index: 200;
-    }
-    #pair-prompt h1 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
-      background: linear-gradient(90deg, #00d9ff, #00ff88);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    #pair-prompt p {
-      color: #8b8b9e;
-      max-width: 300px;
-      line-height: 1.5;
-    }
-    #pair-prompt.hidden {
-      display: none;
-    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;overflow:hidden;background:#0d1b2a;font-family:-apple-system,system-ui,sans-serif;color:#f5f0e1}
+    .launcher{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center}
+    .launcher.hidden{display:none}
+    h1{font-size:1.8rem;margin-bottom:0.3rem;background:linear-gradient(90deg,#00d9ff,#00ff88);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .sub{color:#8b8b9e;font-size:0.9rem;margin-bottom:2rem}
+    .form-group{width:100%;max-width:320px}
+    label{display:block;text-align:left;color:#8b8b9e;font-size:0.75rem;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+    .ip-row{display:flex;gap:8px}
+    .ip-input{flex:1;padding:14px 16px;border-radius:12px;border:2px solid #1e3a5f;background:#0a1628;color:#fff;font-size:1.1rem;font-family:monospace;text-align:center;outline:none;transition:border-color 0.2s}
+    .ip-input:focus{border-color:#00d9ff}
+    .port-input{width:80px;padding:14px 8px;border-radius:12px;border:2px solid #1e3a5f;background:#0a1628;color:#666;font-size:1.1rem;font-family:monospace;text-align:center;outline:none}
+    .btn{width:100%;margin-top:14px;padding:14px;border-radius:12px;border:none;font-size:1rem;font-weight:600;cursor:pointer;transition:transform 0.1s,opacity 0.2s}
+    .btn:active{transform:scale(0.97)}
+    .btn-primary{background:linear-gradient(135deg,#00d9ff,#00ff88);color:#0d1b2a}
+    .btn-scan{background:rgba(0,217,255,0.15);color:#00d9ff;border:2px solid rgba(0,217,255,0.3)}
+    .divider{display:flex;align-items:center;gap:12px;width:100%;max-width:320px;margin:16px 0;color:#333}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:#1e3a5f}
+    .status-msg{margin-top:16px;font-size:0.85rem;color:#8b8b9e;min-height:20px}
+    .status-msg.error{color:#ff6464}
+    .status-msg.ok{color:#00ff88}
+    .saved-server{margin-top:16px;padding:12px 20px;border-radius:12px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.2);cursor:pointer;transition:background 0.2s}
+    .saved-server:hover{background:rgba(0,217,255,0.15)}
+    .saved-label{font-size:0.7rem;color:#8b8b9e;text-transform:uppercase;letter-spacing:0.5px}
+    .saved-ip{font-family:monospace;font-size:1rem;color:#00d9ff;margin-top:2px}
+    #qr-container{display:none;width:100%;max-width:320px;margin-top:12px;position:relative}
+    #qr-video{width:100%;border-radius:12px;border:2px solid #1e3a5f;background:#000}
+    #qr-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+    #qr-overlay .frame{width:180px;height:180px;border:2px solid rgba(0,217,255,0.6);border-radius:8px}
+    .cancel-scan{margin-top:8px;font-size:0.85rem;color:#8b8b9e;background:none;border:none;cursor:pointer;text-decoration:underline}
   </style>
 </head>
 <body>
-  <div id="app">
-    <canvas id="game"></canvas>
+  <div class="launcher" id="launcher">
+    <h1>Claude Events</h1>
+    <p class="sub">Connect to your Claude Code server</p>
+
+    <div id="saved-section"></div>
+
+    <div class="form-group">
+      <label for="server-ip">Server IP</label>
+      <div class="ip-row">
+        <input id="server-ip" class="ip-input" type="text" placeholder="192.168.x.x" inputmode="url" autocomplete="off">
+        <input id="server-port" class="port-input" type="text" value="8787" readonly>
+      </div>
+      <button type="button" id="btn-connect" class="btn btn-primary">Connect</button>
+    </div>
+
+    <div class="divider">or</div>
+
+    <div class="form-group">
+      <button type="button" id="btn-scan" class="btn btn-scan">Scan QR Code</button>
+    </div>
+
+    <div id="qr-container">
+      <video id="qr-video" autoplay playsinline></video>
+      <div id="qr-overlay"><div class="frame"></div></div>
+      <button type="button" class="cancel-scan" id="btn-cancel-scan">Cancel</button>
+    </div>
+
+    <p class="status-msg" id="status-msg"></p>
   </div>
-  <div id="connection-status" class="hidden"></div>
-  <div id="pair-prompt" class="hidden">
-    <h1>PixelHQ</h1>
-    <p>Scan the QR code from the CLI on your laptop to connect</p>
-    <p style="margin-top: 1rem; font-family: monospace; font-size: 0.9rem;">npx pixelhq</p>
-  </div>
-  <script type="module" src="/src/main.ts"></script>
+
+  <script>
+    const SAVED_KEY = 'claude_events_server';
+
+    const ipInput = document.getElementById('server-ip');
+    const btnConnect = document.getElementById('btn-connect');
+    const btnScan = document.getElementById('btn-scan');
+    const btnCancelScan = document.getElementById('btn-cancel-scan');
+    const statusMsg = document.getElementById('status-msg');
+    const savedSection = document.getElementById('saved-section');
+    const qrContainer = document.getElementById('qr-container');
+    const qrVideo = document.getElementById('qr-video');
+
+    let stream = null;
+    let scanning = false;
+    let scanInterval = null;
+
+    // Auto-redirect if we have a saved server
+    const saved = localStorage.getItem(SAVED_KEY);
+    if (saved) {
+      showStatus('Connecting to ' + saved + '...', 'ok');
+      tryConnect(saved);
+    }
+
+    // Prefill IP: detect local subnet from saved, or try RTCPeerConnection
+    if (!saved) {
+      prefillIP();
+    }
+
+    // Show saved server quick-connect
+    if (saved) {
+      savedSection.innerHTML =
+        '<div class="saved-server" id="saved-connect">' +
+        '<div class="saved-label">Last connected</div>' +
+        '<div class="saved-ip">' + saved + '</div>' +
+        '</div>';
+      document.getElementById('saved-connect').onclick = () => tryConnect(saved);
+    }
+
+    btnConnect.onclick = () => {
+      const ip = ipInput.value.trim();
+      if (!ip) { showStatus('Enter a server IP', 'error'); return; }
+      tryConnect(ip);
+    };
+
+    ipInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btnConnect.click();
+    });
+
+    async function tryConnect(ip) {
+      showStatus('Connecting to ' + ip + ':8787...', '');
+      btnConnect.disabled = true;
+      btnConnect.style.opacity = '0.5';
+      try {
+        const res = await fetch('http://' + ip + ':8787/api/connect', { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) throw new Error('Server returned ' + res.status);
+        localStorage.setItem(SAVED_KEY, ip);
+        showStatus('Connected! Loading...', 'ok');
+        // Redirect to the server - loads the full inline PWA
+        window.location.href = 'http://' + ip + ':8787/';
+      } catch (err) {
+        showStatus('Cannot reach server at ' + ip + ':8787', 'error');
+        btnConnect.disabled = false;
+        btnConnect.style.opacity = '1';
+        // Clear saved if it was an auto-connect attempt
+        if (ip === saved) localStorage.removeItem(SAVED_KEY);
+      }
+    }
+
+    // QR scanning
+    btnScan.onclick = startScan;
+    btnCancelScan.onclick = stopScan;
+
+    async function startScan() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        qrVideo.srcObject = stream;
+        qrContainer.style.display = 'block';
+        btnScan.style.display = 'none';
+        scanning = true;
+
+        // Use BarcodeDetector if available (Chrome Android)
+        if ('BarcodeDetector' in window) {
+          const detector = new BarcodeDetector({ formats: ['qr_code'] });
+          scanInterval = setInterval(async () => {
+            if (!scanning || qrVideo.readyState < 2) return;
+            try {
+              const barcodes = await detector.detect(qrVideo);
+              if (barcodes.length > 0) {
+                handleQRResult(barcodes[0].rawValue);
+              }
+            } catch (e) {}
+          }, 300);
+        } else {
+          // Fallback: canvas-based frame extraction (no decoder)
+          showStatus('QR scanning not supported on this device. Enter IP manually.', 'error');
+          stopScan();
+        }
+      } catch (err) {
+        showStatus('Camera access denied', 'error');
+      }
+    }
+
+    function stopScan() {
+      scanning = false;
+      if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      qrContainer.style.display = 'none';
+      btnScan.style.display = 'block';
+    }
+
+    function handleQRResult(value) {
+      stopScan();
+      // QR from CLI contains URL like http://192.168.29.79:8787/pair?token=xxx
+      try {
+        const url = new URL(value);
+        const ip = url.hostname;
+        ipInput.value = ip;
+        showStatus('Scanned: ' + ip, 'ok');
+        tryConnect(ip);
+      } catch (e) {
+        // Maybe it's just an IP
+        const ipMatch = value.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+        if (ipMatch) {
+          ipInput.value = ipMatch[1];
+          showStatus('Scanned: ' + ipMatch[1], 'ok');
+          tryConnect(ipMatch[1]);
+        } else {
+          showStatus('Invalid QR code', 'error');
+        }
+      }
+    }
+
+    async function prefillIP() {
+      // Try to detect local IP via RTCPeerConnection
+      try {
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        pc.createDataChannel('');
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await new Promise((resolve) => {
+          pc.onicecandidate = (e) => {
+            if (!e.candidate) { resolve(); return; }
+            const match = e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+            if (match && !match[1].startsWith('0.') && match[1] !== '0.0.0.0') {
+              // Prefill with same subnet, last octet blank
+              const parts = match[1].split('.');
+              ipInput.value = parts[0] + '.' + parts[1] + '.' + parts[2] + '.';
+              ipInput.setSelectionRange(ipInput.value.length, ipInput.value.length);
+              pc.close();
+              resolve();
+            }
+          };
+          setTimeout(resolve, 2000);
+        });
+      } catch (e) {
+        // Fallback - no prefill
+      }
+    }
+
+    function showStatus(msg, type) {
+      statusMsg.textContent = msg;
+      statusMsg.className = 'status-msg' + (type ? ' ' + type : '');
+    }
+  </script>
 </body>
 </html>

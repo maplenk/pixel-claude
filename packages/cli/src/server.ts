@@ -108,6 +108,12 @@ export function createServers(config: ServerConfig, stateMachine: StateMachine) 
       return;
     }
 
+    if (url.pathname === '/api/connect') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ wsEndpoint: `ws://${localIP}:${wsPort}/ws?token=${token}`, token, ip: localIP }));
+      return;
+    }
+
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not Found');
   });
@@ -169,6 +175,8 @@ function handleHookEvent(event: HookEvent, stateMachine: StateMachine): void {
     else if (['Read', 'Grep', 'Glob', 'Task', 'WebFetch', 'WebSearch'].includes(tool)) {
       stateMachine.emit('thinking', 3000);
     }
+  } else if (event.type === 'Notification') {
+    stateMachine.emit('input_needed');
   } else if (event.type === 'Stop') {
     stateMachine.emit('celebrate', 2000);
   } else if (event.type === 'Error' || (event.exitCode && event.exitCode !== 0)) {
@@ -281,7 +289,7 @@ let mx=IW*0.5,my=IH*0.5,tx=mx,ty=my;
 function connect(){
   ws=new WebSocket(WS);
   ws.onopen=()=>{rd=1e3;ws.send(JSON.stringify({type:'hello',version:1,client:'pwa',token:TK}))};
-  ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')mode=m.mode}catch(e){}};
+  ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state'){const prev=mode;mode=m.mode;if(mode==='input_needed'&&prev!=='input_needed'&&document.visibilityState!=='visible'&&'Notification'in window&&Notification.permission==='granted'){new Notification('${companyName}',{body:'Claude needs your input!',icon:'/icon-192.svg',tag:'input-needed',renotify:true})}}}catch(e){}};
   ws.onclose=()=>{setTimeout(connect,rd);rd=Math.min(rd*1.5,3e4)};
   ws.onerror=()=>ws.close();
 }
@@ -952,7 +960,7 @@ function drawStatus(){
   // Mode text
   cx.fillStyle='#f2c14e';
   cx.font='5px monospace';
-  const names={idle:'IDLE',typing:'PREP',running:'COOK',thinking:'READ',celebrate:'DONE',error:'OOPS'};
+  const names={idle:'IDLE',typing:'PREP',running:'COOK',thinking:'READ',celebrate:'DONE',error:'OOPS',input_needed:'WAIT'};
   cx.fillText(names[mode]||mode,x+8,y+7);
 }
 
@@ -969,6 +977,7 @@ function ninjaCook(x,y,t){
     else if(mode==='running'){arm=Math.sin(t/200)*2;}
     else if(mode==='thinking'){arm=-1;}
     else if(mode==='celebrate'){bob=-anim*0.5;arm=-1.5;}
+    else if(mode==='input_needed'){bob=Math.sin(t/300)*1;arm=-2;}
     else if(mode==='error'){bob=anim%2*1.5;}
   }
 
@@ -1119,6 +1128,22 @@ function ninjaCook(x,y,t){
     cx.font='bold 5px monospace';
     cx.fillText('?',x+8,by-24);
   }
+  if(mode==='input_needed'&&!walking){
+    const pulse=0.6+Math.sin(t/200)*0.4;
+    const bubY=by-28;
+    cx.fillStyle='rgba(0,217,255,'+pulse*0.3+')';
+    cx.beginPath();cx.arc(x,bubY,12,0,Math.PI*2);cx.fill();
+    cx.fillStyle='rgba(0,217,255,'+(0.8+Math.sin(t/200)*0.2)+')';
+    cx.beginPath();cx.arc(x,bubY,7,0,Math.PI*2);cx.fill();
+    cx.fillStyle='rgba(0,217,255,0.6)';
+    cx.beginPath();cx.arc(x-3,by-21,2,0,Math.PI*2);cx.fill();
+    cx.beginPath();cx.arc(x-2,by-19,1,0,Math.PI*2);cx.fill();
+    cx.fillStyle='#1a1a2e';
+    cx.fillRect(x-3,bubY-3,6,5);
+    cx.fillRect(x-4,bubY+1,8,1);
+    cx.fillRect(x,bubY+3,1,2);
+    cx.fillRect(x,bubY-5,1,2);
+  }
 }
 
 function render(t){
@@ -1146,6 +1171,7 @@ function render(t){
   else if(mode==='running'){tx=potPos.x;ty=potPos.y;}
   else if(mode==='celebrate'){tx=counterPos.x;ty=counterPos.y-6;}
   else if(mode==='error'){tx=prepPos.x;ty=prepPos.y;}
+  else if(mode==='input_needed'){tx=counterPos.x;ty=counterPos.y-6;}
   else{tx=IW*0.5;ty=IH*0.5;} // idle: center
 
   // Move character (mostly vertical)
@@ -1162,7 +1188,29 @@ function render(t){
   // 5. Foreground
   foreground(t);
 
-  // 6. UI
+  // 6. Input needed pulse
+  if(mode==='input_needed'){
+    const p=0.15+Math.sin(t/250)*0.15;
+    cx.save();
+    cx.strokeStyle='rgba(0,217,255,'+p+')';
+    cx.lineWidth=3;
+    cx.strokeRect(1,1,IW-2,IH-2);
+    cx.fillStyle='rgba(0,217,255,'+p*2+')';
+    const cs=6;
+    cx.fillRect(0,0,cs,2);cx.fillRect(0,0,2,cs);
+    cx.fillRect(IW-cs,0,cs,2);cx.fillRect(IW-2,0,2,cs);
+    cx.fillRect(0,IH-2,cs,2);cx.fillRect(0,IH-cs,2,cs);
+    cx.fillRect(IW-cs,IH-2,cs,2);cx.fillRect(IW-2,IH-cs,2,cs);
+    const ba=0.7+Math.sin(t/300)*0.3;
+    cx.fillStyle='rgba(0,20,40,'+ba*0.8+')';
+    cx.fillRect(IW/2-36,IH-26,72,10);
+    cx.fillStyle='rgba(0,217,255,'+ba+')';
+    cx.font='bold 6px monospace';
+    cx.fillText('INPUT NEEDED',IW/2-32,IH-19);
+    cx.restore();
+  }
+
+  // 7. UI
   drawStatus();
 
   requestAnimationFrame(render);
@@ -1172,6 +1220,11 @@ localStorage.setItem('pixelhq_wsEndpoint',WS);
 localStorage.setItem('pixelhq_token',TK);
 connect();
 requestAnimationFrame(render);
+document.addEventListener('touchstart',function n(){if('Notification'in window&&Notification.permission==='default')Notification.requestPermission();document.removeEventListener('touchstart',n)},{once:true});
+// Two-finger double-tap to cycle modes (mobile testing)
+const _modes=['idle','typing','running','thinking','celebrate','error','input_needed'];
+let _tc=0,_tt=null;
+document.addEventListener('touchstart',function(e){if(e.touches.length!==2)return;_tc++;if(_tt)clearTimeout(_tt);_tt=setTimeout(()=>{_tc=0},500);if(_tc>=2){_tc=0;const i=(_modes.indexOf(mode)+1)%_modes.length;mode=_modes[i];document.title='Mode: '+mode}});
 })();
 </script>
 </body>

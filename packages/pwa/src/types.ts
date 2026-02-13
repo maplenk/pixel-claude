@@ -1,4 +1,4 @@
-export type Mode = 'idle' | 'typing' | 'running' | 'thinking' | 'celebrate' | 'error';
+export type Mode = 'idle' | 'typing' | 'running' | 'thinking' | 'celebrate' | 'error' | 'input_needed';
 
 export interface StateMessage {
   type: 'state';

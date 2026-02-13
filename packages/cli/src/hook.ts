@@ -25,6 +25,7 @@ interface HookInput {
   };
   exitCode?: number;
   error?: string;
+  message?: string;
 }
 
 async function main() {

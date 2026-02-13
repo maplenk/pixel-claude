@@ -1,4 +1,4 @@
-export type Mode = 'idle' | 'typing' | 'running' | 'thinking' | 'celebrate' | 'error';
+export type Mode = 'idle' | 'typing' | 'running' | 'thinking' | 'celebrate' | 'error' | 'input_needed';
 
 export interface StateMessage {
   type: 'state';
@@ -14,7 +14,7 @@ export interface HelloMessage {
 }
 
 export interface HookEvent {
-  type: 'PreToolUse' | 'PostToolUse' | 'Stop' | 'Error';
+  type: 'PreToolUse' | 'PostToolUse' | 'Stop' | 'Error' | 'Notification';
   tool?: string;
   exitCode?: number;
 }

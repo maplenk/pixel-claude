@@ -8,6 +8,7 @@ export const MODE_COLORS: Record<Mode, string> = {
   thinking: '#805ad5',  // Purple
   celebrate: '#f6e05e', // Yellow
   error: '#f56565',     // Red
+  input_needed: '#00d9ff', // Cyan - attention needed
 };
 
 // Character colors
