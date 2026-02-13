@@ -166,6 +166,7 @@ const ANIM = {
 let charX = DESK_X;
 let charY = DESK_Y + 12;
 const MOVE_SPEED = 1.5;
+let lastLayout: 'design' | 'procedural' | null = null;
 
 // Target positions based on activity
 const POSITIONS = {
@@ -174,6 +175,15 @@ const POSITIONS = {
   thinking: { x: WHITEBOARD_POS.x + TILE * 2, y: WHITEBOARD_POS.y + TILE * 5 },
   running: { x: SERVER_POS.x - TILE * 2, y: SERVER_POS.y + TILE * 4 },
   waiting: { x: ROOM_X + TILE * 2, y: FLOOR_Y + TILE * 4 },
+};
+
+// Positions when using a full Limezu office design background
+const DESIGN_POSITIONS = {
+  idle: { x: Math.round(IW * 0.52), y: Math.round(IH * 0.58) },
+  typing: { x: Math.round(IW * 0.52), y: Math.round(IH * 0.58) },
+  thinking: { x: Math.round(IW * 0.72), y: Math.round(IH * 0.32) },
+  running: { x: Math.round(IW * 0.75), y: Math.round(IH * 0.44) },
+  waiting: { x: Math.round(IW * 0.3), y: Math.round(IH * 0.68) },
 };
 
 // =============================================================================
@@ -210,8 +220,6 @@ export function drawWorkspace(
     drawBackDesks(ctx);
     drawLounge(ctx);
     drawPlants(ctx);
-  } else {
-    drawDeskRug(ctx);
   }
 
   // Only draw extra desk/lamp if not already in the design background
@@ -221,11 +229,10 @@ export function drawWorkspace(
   }
 
   // 5. Character(s)
-  const target = getTargetPosition(state.activity);
+  const target = getTargetPosition(state.activity, hasDesignBg);
+  syncCharacterLayout(hasDesignBg, target);
   updateCharacterPosition(target);
-  if (!hasDesignBg) {
-    drawCharacter(ctx, time, state, charX, charY, true);
-  }
+  drawCharacter(ctx, time, state, charX, charY, true, target);
 
   // 6. Handle tool effects
   handleToolEffects(state);
@@ -282,39 +289,24 @@ function drawOfficeDesignBackground(ctx: CanvasRenderingContext2D): boolean {
 
   const frame = designSheet.frames.get(frameName)!;
 
-  // Pixel-perfect crop to 360x320 then scale 0.5 => 180x160 (stacked twice to fill 320 height)
-  const cropX = 28;
-  const cropW = 360;
-  const cropH = 320;
-  const drawW = IW;
-  const drawH = Math.floor(cropH * 0.5); // 160
+  // Pixel-perfect crop: pull a 1:1 slice of the design to fill the 180x320 screen
+  const cropW = Math.min(IW, frame.w);
+  const cropH = Math.min(IH, frame.h);
+  const cropX = Math.max(0, Math.floor((frame.w - cropW) * 0.5));
+  const cropY = Math.max(0, Math.floor((frame.h - cropH) * 0.5)); // center crop for balanced composition
 
   ctx.imageSmoothingEnabled = false;
 
-  // Top slice
   ctx.drawImage(
     designSheet.image,
     frame.x + cropX,
-    frame.y + 0,
+    frame.y + cropY,
     cropW,
     cropH,
     0,
     SCENE_TOP,
-    drawW,
-    drawH
-  );
-
-  // Bottom slice (shifted down in source for different content)
-  ctx.drawImage(
-    designSheet.image,
-    frame.x + cropX,
-    frame.y + 64,
-    cropW,
-    cropH,
-    0,
-    SCENE_TOP + drawH,
-    drawW,
-    drawH
+    IW,
+    IH
   );
 
   return true;
@@ -1048,16 +1040,26 @@ function drawProceduralPlant(ctx: CanvasRenderingContext2D, x: number, y: number
 // =============================================================================
 // CHARACTER
 // =============================================================================
-function getTargetPosition(activity: Activity): { x: number; y: number } {
+function getTargetPosition(activity: Activity, useDesign = false): { x: number; y: number } {
+  const positions = useDesign ? DESIGN_POSITIONS : POSITIONS;
   switch (activity) {
     case 'thinking':
-      return POSITIONS.thinking;
+      return positions.thinking;
     case 'responding':
-      return POSITIONS.typing;
+      return positions.typing;
     case 'waiting':
-      return POSITIONS.waiting;
+      return positions.waiting;
     default:
-      return POSITIONS.idle;
+      return positions.idle;
+  }
+}
+
+function syncCharacterLayout(useDesign: boolean, target: { x: number; y: number }): void {
+  const layout = useDesign ? 'design' : 'procedural';
+  if (layout !== lastLayout) {
+    charX = target.x;
+    charY = target.y;
+    lastLayout = layout;
   }
 }
 
@@ -1081,13 +1083,13 @@ function drawCharacter(
   state: AppState,
   x: number,
   y: number,
-  isMain: boolean
+  isMain: boolean,
+  target: { x: number; y: number }
 ): void {
   const animFrame = Math.floor(t / 200) % 4;
   let bodyOffset = 0;
   let armOffset = 0;
 
-  const target = getTargetPosition(state.activity);
   const isWalking = Math.abs(target.x - x) > 2 || Math.abs(target.y - y) > 2;
 
   if (isWalking) {

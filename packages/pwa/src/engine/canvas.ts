@@ -4,11 +4,10 @@ export interface CanvasContext {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   scale: number;
-  dpr: number;
 }
 
-// Track current DPR for resize handling
-let currentDpr = 1;
+// Track current integer scale for resize handling
+let currentScale = 1;
 
 // Double-buffering: offscreen canvas to prevent flickering
 let offscreenCanvas: HTMLCanvasElement | null = null;
@@ -27,15 +26,9 @@ export function setupCanvas(canvasId: string): CanvasContext {
     throw new Error('Could not get 2D context');
   }
 
-  // Get device pixel ratio for retina displays
-  const dpr = window.devicePixelRatio || 1;
-  currentDpr = dpr;
-
   // Set up display canvas (visible)
   displayCanvas = canvas;
   displayCtx = ctx;
-  canvas.width = ART_CONFIG.internalWidth * dpr;
-  canvas.height = ART_CONFIG.internalHeight * dpr;
 
   // Create offscreen canvas for double-buffering (prevents flickering)
   offscreenCanvas = document.createElement('canvas');
@@ -49,28 +42,23 @@ export function setupCanvas(canvasId: string): CanvasContext {
   // Disable image smoothing on display canvas
   ctx.imageSmoothingEnabled = false;
 
-  // Calculate initial display scale
+  // Calculate initial display scale (integer for pixel-perfect rendering)
   const scale = calculateScale();
-  applyScale(canvas, scale);
+  currentScale = scale;
+  applyScale(canvas, ctx, scale);
 
-  // Handle resize and DPR changes
+  // Handle resize changes
   window.addEventListener('resize', () => {
-    const newDpr = window.devicePixelRatio || 1;
     const newScale = calculateScale();
 
-    // If DPR changed, update canvas dimensions
-    if (newDpr !== currentDpr) {
-      currentDpr = newDpr;
-      canvas.width = ART_CONFIG.internalWidth * newDpr;
-      canvas.height = ART_CONFIG.internalHeight * newDpr;
-      ctx.imageSmoothingEnabled = false;
+    if (newScale !== currentScale) {
+      currentScale = newScale;
+      applyScale(canvas, ctx, newScale);
     }
-
-    applyScale(canvas, newScale);
   });
 
   // Return the offscreen context for drawing (prevents flickering)
-  return { canvas, ctx: offscreenCtx!, scale, dpr };
+  return { canvas, ctx: offscreenCtx!, scale };
 }
 
 function calculateScale(): number {
@@ -84,11 +72,18 @@ function calculateScale(): number {
   return Math.max(1, Math.min(scaleX, scaleY));
 }
 
-function applyScale(canvas: HTMLCanvasElement, scale: number): void {
+function applyScale(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, scale: number): void {
   const { internalWidth, internalHeight } = ART_CONFIG;
+  const width = internalWidth * scale;
+  const height = internalHeight * scale;
 
-  canvas.style.width = `${internalWidth * scale}px`;
-  canvas.style.height = `${internalHeight * scale}px`;
+  canvas.width = width;
+  canvas.height = height;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+
+  // Resizing resets smoothing settings
+  ctx.imageSmoothingEnabled = false;
 }
 
 export function clearCanvas(ctx: CanvasRenderingContext2D, color = '#1a1a2e'): void {

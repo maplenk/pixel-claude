@@ -41,8 +41,8 @@ export async function initSprites(): Promise<void> {
     // Modern Office pack (paid)
     { name: 'limezu-office', url: '/sprites/limezu/office/Modern_Office_16x16.png', frames: createModernOfficeFrames() },
     { name: 'limezu-office-room', url: '/sprites/limezu/office/Room_Builder_Office_16x16.png', frames: createOfficeRoomFrames() },
-    { name: 'limezu-office-design-1', url: '/sprites/limezu/office/Office_Design_1.png', frames: createOfficeDesignFrames('office_design_1') },
-    { name: 'limezu-office-design-2', url: '/sprites/limezu/office/Office_Design_2.png', frames: createOfficeDesignFrames('office_design_2') },
+    { name: 'limezu-office-design-1', url: '/sprites/limezu/office/Office_Design_1.png', frames: createOfficeDesignFrames('office_design_1', 416, 384) },
+    { name: 'limezu-office-design-2', url: '/sprites/limezu/office/Office_Design_2.png', frames: createOfficeDesignFrames('office_design_2', 512, 544) },
     // Limezu UI elements (16x16 tiles)
     { name: 'limezu-ui-bubble-empty', url: '/sprites/limezu/ui/bubble_empty.png', frames: createSingleTileFrame('ui_bubble_empty') },
     { name: 'limezu-ui-bubble-hello', url: '/sprites/limezu/ui/bubble_heart.png', frames: createSingleTileFrame('ui_bubble_heart') },
@@ -660,8 +660,8 @@ function createModernOfficeFrames(): FrameData[] {
 /**
  * Office design background (single frame)
  */
-function createOfficeDesignFrames(name: string): FrameData[] {
-  return [{ name, x: 0, y: 0, w: 416, h: 384 }];
+function createOfficeDesignFrames(name: string, w: number, h: number): FrameData[] {
+  return [{ name, x: 0, y: 0, w, h }];
 }
 
 function createSingleTileFrame(name: string): FrameData[] {

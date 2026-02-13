@@ -1,10 +1,9 @@
-import { setupCanvas, clearCanvas, presentFrame } from './engine/canvas';
-import { drawOffice } from './scenes/office';
-import { drawWorkspace } from './scenes/workspace';
+import * as PIXI from 'pixi.js';
+import { createPixiWorkspaceScene } from './pixi/workspaceScene';
+import { createPixiOfficeScene } from './pixi/officeScene';
 import { WSClient, BridgeClient } from './net/ws';
 import { store, loadConnectionInfo, AppState } from './store/state';
-import { initSprites } from './engine/spriteManager';
-import type { Mode } from './types';
+import { ART_CONFIG, type Mode } from './types';
 
 // DOM elements
 const pairPrompt = document.getElementById('pair-prompt')!;
@@ -13,7 +12,6 @@ const connectionStatus = document.getElementById('connection-status')!;
 // State
 let wsClient: WSClient | null = null;
 let bridgeClient: BridgeClient | null = null;
-let currentMode: Mode = 'idle';
 let currentState: AppState = store.getState();
 
 // Dev mode: add ?dev to URL to see scene without connection
@@ -24,22 +22,52 @@ const isLive = window.location.search.includes('live');
 
 // Bridge mode: add ?bridge to connect to PixelHQ-bridge
 const isBridge = window.location.search.includes('bridge');
-
 // Scene selection: ?scene=workspace or ?scene=office (default: workspace)
 const sceneParam = new URLSearchParams(window.location.search).get('scene');
-const useWorkspaceScene = sceneParam !== 'office';
+const useOfficeScene = sceneParam === 'office';
 
 // Initialize
 async function init() {
-  // Setup canvas
-  const { ctx } = setupCanvas('game');
+  // Setup PixiJS application
+  PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
+  PIXI.settings.ROUND_PIXELS = true;
+  PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  PIXI.BaseTexture.defaultOptions.mipmap = PIXI.MIPMAP_MODES.OFF;
 
-  // Try to load sprites (gracefully falls back to procedural if not found)
-  await initSprites();
+  const canvas = document.getElementById('game') as HTMLCanvasElement;
+  if (!canvas) {
+    throw new Error('Canvas element #game not found');
+  }
+
+  const app = new PIXI.Application({
+    view: canvas,
+    width: ART_CONFIG.internalWidth,
+    height: ART_CONFIG.internalHeight,
+    backgroundColor: 0x1a1a2e,
+    antialias: false,
+    autoDensity: true,
+    resolution: window.devicePixelRatio || 1,
+  });
+
+  app.renderer.roundPixels = true;
+  app.stage.roundPixels = true;
+
+  const workspaceScene = await createPixiWorkspaceScene(currentState);
+  const officeScene = await createPixiOfficeScene(currentState);
+  app.stage.addChild(workspaceScene.container);
+  app.stage.addChild(officeScene.container);
+
+  workspaceScene.container.visible = !useOfficeScene;
+  officeScene.container.visible = useOfficeScene;
+  const activeScene = useOfficeScene ? officeScene : workspaceScene;
+
+  applyPixiScale(app);
+  window.addEventListener('resize', () => applyPixiScale(app));
 
   // Dev mode: hide prompt and cycle through modes for testing
   if (isDev) {
     pairPrompt.classList.add('hidden');
+    connectionStatus.classList.add('hidden');
     const modes: Mode[] = ['idle', 'typing', 'thinking', 'running', 'celebrate', 'error'];
     let modeIndex = 0;
 
@@ -111,23 +139,16 @@ async function init() {
 
   // Subscribe to state changes
   store.subscribe((state) => {
-    currentMode = state.mode;
     currentState = state;
+    activeScene.setState(state);
 
     // Update connection status UI
     updateConnectionStatus(state.connectionState);
   });
 
-  // Start render loop with double-buffering
-  requestAnimationFrame(function loop(time) {
-    if (useWorkspaceScene) {
-      drawWorkspace(ctx, currentState, time);
-    } else {
-      drawOffice(ctx, currentMode, time);
-    }
-    // Present the completed frame (prevents flickering)
-    presentFrame();
-    requestAnimationFrame(loop);
+  // Start render loop
+  app.ticker.add(() => {
+    activeScene.update(performance.now());
   });
 
   // Handle visibility changes (reconnect when app becomes visible)
@@ -163,6 +184,26 @@ function updateConnectionStatus(state: 'disconnected' | 'connecting' | 'connecte
     connectionStatus.textContent = 'Connecting...';
     connectionStatus.classList.add('disconnected');
   }
+}
+
+function applyPixiScale(app: PIXI.Application): void {
+  const { internalWidth, internalHeight } = ART_CONFIG;
+  const viewport = window.visualViewport;
+  const availableWidth = viewport?.width ?? window.innerWidth;
+  const availableHeight = viewport?.height ?? window.innerHeight;
+  const scaleX = Math.floor(availableWidth / internalWidth);
+  const scaleY = Math.floor(availableHeight / internalHeight);
+  const scale = Math.max(1, Math.min(scaleX, scaleY));
+  const width = internalWidth * scale;
+  const height = internalHeight * scale;
+
+  const dpr = window.devicePixelRatio || 1;
+  app.renderer.resolution = dpr;
+  app.renderer.resize(width, height);
+  app.stage.scale.set(scale);
+
+  app.view.style.width = `${width}px`;
+  app.view.style.height = `${height}px`;
 }
 
 // Start the app
