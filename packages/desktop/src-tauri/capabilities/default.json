@@ -1,0 +1,10 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for Claude Events",
+  "windows": ["main"],
+  "permissions": [
+    "shell:allow-execute",
+    "shell:allow-spawn",
+    "shell:allow-open"
+  ]
+}

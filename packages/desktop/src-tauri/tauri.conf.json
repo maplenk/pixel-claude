@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicoverbruggen/tauri-v2-schema/main/src/tauri.conf.json",
+  "productName": "Claude Events",
+  "version": "0.1.0",
+  "identifier": "com.claudeevents.desktop",
+  "build": {
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Claude Events",
+        "width": 420,
+        "height": 740,
+        "resizable": true,
+        "decorations": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "externalBin": [
+      "binaries/claude-events-server"
+    ]
+  }
+}

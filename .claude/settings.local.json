@@ -50,7 +50,17 @@
       "Bash(pnpm dev)",
       "Bash(/usr/libexec/java_home:*)",
       "Bash(export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)",
-      "Bash(./gradlew assembleDebug:*)"
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(rustc:*)",
+      "Bash(cargo --version:*)",
+      "Bash(bun:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:v2.tauri.app)",
+      "WebFetch(domain:blog.moonguard.dev)",
+      "Bash(pnpm rebuild:*)",
+      "Bash(npx @yao-pkg/pkg:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm tauri build:*)"
     ]
   },
   "hooks": {

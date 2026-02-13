@@ -2,7 +2,8 @@
 node_modules/
 
 # Build output
-dist/
+packages/*/dist/
+!packages/desktop/dist/
 *.tsbuildinfo
 
 # Vite
@@ -35,3 +36,10 @@ workbox-*.js
 # Capacitor native projects
 ios/
 android/
+
+# Tauri build artifacts
+packages/desktop/src-tauri/target/
+packages/desktop/src-tauri/gen/
+
+# Sidecar binaries (large compiled binaries)
+packages/desktop/src-tauri/binaries/
